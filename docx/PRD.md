@@ -423,8 +423,9 @@ mysql-daily-scheduled-backup/
 ├── tests/
 │   ├── unit/                      # 领域纯逻辑单测（无 IO）
 │   └── integration/               # mock 命令的集成测试
-└── docs/
-    └── PRD.md
+└── docx/
+    ├── PRD.md
+    └── PLAN.md
 ```
 
 #### 7.3.10 核心领域规则（可单测样例）
