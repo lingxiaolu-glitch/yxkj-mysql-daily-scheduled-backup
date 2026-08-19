@@ -1,0 +1,21 @@
+# 日志与备份产物
+logs/
+*.sql.gz
+*.sql
+
+# 凭据（禁止提交）
+*.pwd
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# 编辑器 / 系统
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
