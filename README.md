@@ -20,14 +20,17 @@ mysql-daily-scheduled-backup/
 ├── infrastructure/
 │   └── config_loader.py     # 步骤 02：TOML + 环境变量 → 强类型 AppConfig
 ├── scripts/                 # 运行包装脚本（依赖 application/main.py，入口在步骤 11 实现）
-└── tests/                   # unit / integration（随步骤新增）
+└── tests/
+    └── unit/
+        └── test_config_loader.py  # 配置加载单元测试
 ```
 
 > 当前状态：
 >
 > - 步骤 01 项目骨架已完成；配置拆分为 `configs/instance-a.toml`、`configs/instance-b.toml` 和被 git 忽略的 `configs/.env`。
 > - 步骤 02 配置加载器 `infrastructure/config_loader.py` 已实现：TOML 解析、默认值、类型/枚举校验、备份范围语义校验、密码环境变量解析和脱敏摘要。
-> - 步骤 02 的计划内单元测试尚未新增；命令行入口（步骤 11）也未实现，因此 `scripts/run_backup.*` 目前只是部署流程的预留包装脚本。
+> - 步骤 02 单元测试已补齐，`python -m unittest discover -s tests -v` 当前 15 个用例全部通过。
+> - 命令行入口（步骤 11）尚未实现，因此 `scripts/run_backup.*` 目前只是部署流程的预留包装脚本。
 
 ## 使用配置加载器
 

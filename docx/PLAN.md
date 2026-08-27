@@ -18,7 +18,7 @@
 | # | 步骤 | 主要交付物 | 依赖 | 状态 |
 | --- | --- | --- | --- | --- |
 | 01 | 项目骨架 | 目录结构、空包、configs/ 多实例配置模板、requirements.txt、.gitignore | — | ✅ |
-| 02 | 配置加载与校验 | `infrastructure/config_loader.py` + 完整默认配置 | 01 | 🚧 |
+| 02 | 配置加载与校验 | `infrastructure/config_loader.py` + 完整默认配置 | 01 | ✅ |
 | 03 | 日志与脱敏 | `infrastructure/logging_utils.py`（run_id、轮转、敏感信息脱敏） | 01 | ⬜ |
 | 04 | 领域模型与事件 | `domain/model/*`、`domain/events.py`、`domain/repositories.py` | 02 | ⬜ |
 | 05 | 领域服务 | `domain/services/backup_execution.py`、`retention.py`、`verification.py` | 04 | ⬜ |
@@ -47,7 +47,7 @@
 
 ### 步骤 02：配置加载与校验
 
-> **当前进度**：`infrastructure/config_loader.py` 已实现 TOML 加载、强类型值对象、默认值填充、枚举/路径/标识符校验、备份范围语义校验、密码环境变量解析和 `safe_summary()` 脱敏摘要。已完成 `python -m py_compile` 和实例 A/B 配置的加载冒烟检查；计划内的 `tests/unit/test_config_loader.py` 尚未交付，因此整体状态保持「进行中」。
+> **当前进度**：`infrastructure/config_loader.py` 已实现 TOML 加载、强类型值对象、默认值填充、枚举/路径/标识符校验、备份范围语义校验、密码环境变量解析和 `safe_summary()` 脱敏摘要。计划内 `tests/unit/test_config_loader.py` 已交付，覆盖合法/非法配置、默认值、枚举、备份范围语义、密码脱敏和多实例加载等场景；当前 `python -m unittest discover -s tests -v` 共 15 个用例全部通过。
 
 - **目标**：读取 TOML + 环境变量，输出强类型配置对象，错误信息清晰。
 - **新增**：`infrastructure/config_loader.py`，`tests/unit/test_config_loader.py`。
