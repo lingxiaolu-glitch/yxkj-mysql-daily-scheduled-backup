@@ -222,7 +222,7 @@ flowchart TD
         A[cron / systemd timer / Windows 计划任务]
     end
     A -->|每天 02:00 触发| B[触发层命令处理器 / application/main.py 单次执行]
-    B --> C[加载 config.toml]
+    B --> C[加载实例配置 configs/instance-*.toml]
     C --> D[预检：锁文件/磁盘空间/mysqldump 可用]
     D --> E[枚举备份库清单]
     E --> F[逐库执行 mysqldump]
@@ -241,7 +241,7 @@ flowchart TD
 ### 7.2 核心流程（端到端）
 
 1. **调度触发**：系统调度器按配置时间（默认 02:00）触发 `RunBackupCommandHandler`，应用层 `python3 application/main.py` 单次执行；
-2. **加载配置**：读取 `config.toml` 与环境变量（凭据）；
+2. **加载配置**：按 `--config` 读取对应实例配置（`configs/instance-*.toml`）与 `configs/.env` 凭据；
 3. **预检**：检查并发锁、目标盘剩余空间、`mysqldump` 可执行、MySQL 连通性；
 4. **确定备份清单**：`all` 模式通过 `SHOW DATABASES` 排除系统库；或使用配置的白名单；
 5. **逐库备份**：对每个库执行 `mysqldump ... | gzip > 目标文件`，记录耗时与退出码，失败自动重试（默认 1 次）；
@@ -384,7 +384,7 @@ mysqldump 是外部遗留工具：参数多、退出码语义与业务不同、�
 
 ```text
 mysql-daily-scheduled-backup/
-├── config.toml                    # 配置文件
+├── configs/                      # 每实例一份配置（instance-a/instance-b）+ .env 凭据（.env 已 gitignore）
 ├── requirements.txt               # v1 为空（纯标准库），预留
 ├── README.md                      # 快速开始、部署、恢复说明
 ├── application/
@@ -443,65 +443,90 @@ mysql-daily-scheduled-backup/
 
 ## 8. 详细设计
 
-### 8.1 配置设计（config.toml）
+### 8.1 配置设计（每实例一份：configs/instance-*.toml）
+
+**目录约定**（`configs/`，凭据文件已 gitignore）：
+
+```text
+configs/
+├── instance-a.toml    # 实例 A 配置（生产：117.72.97.228:13306）
+├── instance-b.toml    # 实例 B 配置（占位，待填）
+├── .env               # 真实凭据（敏感！已 gitignore，生产 chmod 600）
+└── .env.example       # 凭据模板（可提交，无真实密码）
+```
+
+**凭据约定**：密码一律不写入任何 `.toml`，统一放 `configs/.env`（每实例一个环境变量），由 `scripts/run_backup.sh`（Linux）/ `scripts/run_backup.ps1`（Windows）加载后注入进程环境变量，供 `password_env` 读取。`password_file`（600 权限文件）为 v2 预留，当前 loader 尚未实现。
+
+**加载方式**：`python application/main.py backup --config configs/instance-*.toml`；一个实例一份配置 + 一条定时任务，错峰执行（实例 A 02:00 / 实例 B 02:30）。
+
+**`configs/instance-a.toml`**（实例 B 同构，仅 host / port / user / password_env / dest_dir / schedule.time / log.dir 不同）：
 
 ```toml
 [mysql]
-host = "127.0.0.1"            # MySQL 地址
-port = 3306
-user = "backup_user"
-password_env = "MYSQL_BACKUP_PASSWORD"   # 推荐：从环境变量读取密码
-# password_file = "/etc/mysql-backup/.pwd"  # 或从 600 权限文件读取
+host = "117.72.97.228"          # 实例 A 地址
+port = 13306
+user = "root"                   # 建议生产改用最小权限备份账号（见 9.4）
+password_env = "MYSQL_BACKUP_PASSWORD_A"   # 密码在 configs/.env，勿写死
+# password_file = "/etc/mysql-backup/.pwd"  # v2 预留：或从 600 权限文件读取
 
 [backup]
-dest_dir = "/data/backup/mysql"          # 备份根目录
-databases = ["all"]                      # ["all"] 或 ["db1", "db2"]，或 ["db1:table1,table2"]
+dest_dir = "/data/backup/mysql/instance-a"   # 每实例独立目录，避免 manifest 互相覆盖
+databases = ["all"]                          # ["all"] 或 ["db1", "db2"]，或 ["db1:table1,table2"]
 exclude_databases = ["information_schema", "performance_schema", "sys", "mysql"]
 mysqldump_path = "mysqldump"
-compress = "gzip"                        # gzip | zstd | none
-schema_only = true                       # 已确认需要：额外输出仅表结构文件
-extra_args = []                          # 附加 mysqldump 参数，如 ["--hex-blob"]
-retry_times = 1                          # 单库失败重试次数
-lock_wait_timeout = 3600                 # 等待上一轮结束的秒数（0=直接跳过）
+compress = "gzip"                            # gzip | zstd | none
+schema_only = true                           # 已确认需要：额外输出仅表结构文件
+extra_args = []                              # 附加 mysqldump 参数，如 ["--hex-blob"]
+retry_times = 1                              # 单库失败重试次数
+lock_wait_timeout = 3600                     # 等待上一轮结束的秒数（0=直接跳过）
 
 [retention]
-days = 1                                 # 日备保留天数（已确认 1 天）
-weekly = 0                               # 周备保留份数（默认关闭，需评估磁盘空间后启用）
-monthly = 0                              # 月备保留份数（默认关闭）
+days = 1                                     # 日备保留天数（已确认 1 天）
+weekly = 0                                   # 周备保留份数（默认关闭，需评估磁盘空间后启用）
+monthly = 0                                  # 月备保留份数（默认关闭）
 enabled = true
 
 [schedule]
-time = "02:00"                           # 参考时间，供部署脚本生成调度
+time = "02:00"                               # 实例 A 02:00；实例 B 02:30 错峰
 timezone = "Asia/Shanghai"
 
 [verify]
-level = "L1"                             # L0 | L1 | L2
-shadow_db_prefix = "restore_check_"      # L2 影子库前缀
-sample_tables = []                       # 行数抽样比对表，空=仅比对表数量
+level = "L1"                                 # L0 | L1 | L2
+shadow_db_prefix = "restore_check_"          # L2 影子库前缀
+sample_tables = []                           # 行数抽样比对表，空=仅比对表数量
 
 [notify]
-enabled = true                           # v1：日志/退出码兜底
+enabled = true                               # v1：日志/退出码兜底
 on_success = false
 on_failure = true
-type = "log"                             # log（v1 默认）| smtp（v2）/ webhook（预留）
+type = "log"                                 # log（v1 默认）| smtp（v2）/ webhook（预留）
 # v2 启用 QQ 邮箱（SMTP 邮件）：
 # [notify.smtp]
 # host = "smtp.qq.com"
 # port = 465
 # username = "xxx@qq.com"
-# password_env = "SMTP_AUTH_CODE"        # QQ 邮箱授权码
+# password_env = "SMTP_AUTH_CODE"            # QQ 邮箱授权码
 # from_addr = "xxx@qq.com"
 # to_addrs = ["收件人邮箱"]
-# type = "webhook"                       # 预留
-# webhook_url_env = "BACKUP_WEBHOOK_URL" # 企微/钉钉/飞书机器人地址
+# type = "webhook"                           # 预留
+# webhook_url_env = "BACKUP_WEBHOOK_URL"     # 企微/钉钉/飞书机器人地址
 
 [log]
-level = "INFO"                           # DEBUG | INFO | WARNING | ERROR
-dir = "logs"                             # 日志目录
-max_bytes = 10485760                     # 单文件 10MB 轮转
-backup_count = 7                         # 保留 7 个日志文件
+level = "INFO"                               # DEBUG | INFO | WARNING | ERROR
+dir = "logs/instance-a"                      # 每实例独立日志目录
+max_bytes = 10485760                         # 单文件 10MB 轮转
+backup_count = 7                             # 保留 7 个日志文件
 ```
 
+**`configs/.env`**（真实凭据，已 gitignore，禁止提交）：
+
+```dotenv
+# 敏感！禁止提交 git；生产部署 chmod 600
+MYSQL_BACKUP_PASSWORD_A=实例A密码
+MYSQL_BACKUP_PASSWORD_B=实例B密码
+```
+
+**实例差异速查**：A / B 两份配置除 `[mysql]`（host / port / user / password_env）、`dest_dir`、`schedule.time`（错峰）、`log.dir` 外，其余键一致；以 `configs/instance-a.toml`、`configs/instance-b.toml` 实文件为最终依据。
 ### 8.2 备份执行细节
 
 - **一致性**：InnoDB 使用 `--single-transaction --quick`，不锁业务表；
@@ -709,7 +734,7 @@ FLUSH PRIVILEGES;
 | 里程碑 | 内容 | 预计周期 | 交付物 |
 | --- | --- | --- | --- |
 | M1 | PRD 评审、确认假设 | 1-2 天 | 评审通过的 PRD |
-| M2 | 项目骨架 + 单库备份 | 2-3 天 | application/main.py、cli.py / trigger 命令处理器 / domain+infrastructure 骨架 / config.toml / 日志 |
+| M2 | 项目骨架 + 单库备份 | 2-3 天 | application/main.py、cli.py / trigger 命令处理器 / domain+infrastructure 骨架 / configs/instance-*.toml / 日志 |
 | M3 | 多库 + 压缩 + manifest + 保留清理 | 3-4 天 | 完整备份链路 |
 | M4 | 校验 + 告警 + 恢复脚本 + 单测 | 3-4 天 | 全功能版本 |
 | M5 | 服务器部署 + 定时任务 + 恢复演练 | 2-3 天 | 上线 + 演练报告 |

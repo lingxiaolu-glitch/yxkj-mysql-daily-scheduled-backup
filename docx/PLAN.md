@@ -17,8 +17,8 @@
 
 | # | 步骤 | 主要交付物 | 依赖 | 状态 |
 | --- | --- | --- | --- | --- |
-| 01 | 项目骨架 | 目录结构、空包、config.toml 模板、requirements.txt、.gitignore | — | ✅ |
-| 02 | 配置加载与校验 | `infrastructure/config_loader.py` + 完整默认配置 | 01 | ⬜ |
+| 01 | 项目骨架 | 目录结构、空包、configs/ 多实例配置模板、requirements.txt、.gitignore | — | ✅ |
+| 02 | 配置加载与校验 | `infrastructure/config_loader.py` + 完整默认配置 | 01 | 🚧 |
 | 03 | 日志与脱敏 | `infrastructure/logging_utils.py`（run_id、轮转、敏感信息脱敏） | 01 | ⬜ |
 | 04 | 领域模型与事件 | `domain/model/*`、`domain/events.py`、`domain/repositories.py` | 02 | ⬜ |
 | 05 | 领域服务 | `domain/services/backup_execution.py`、`retention.py`、`verification.py` | 04 | ⬜ |
@@ -40,12 +40,14 @@
 - **目标**：建立与 PRD 7.3.9 一致的目录结构，后续所有代码有明确落位。
 - **新增**：
   - 目录：`application/`、`trigger/`、`domain/model/`、`domain/services/`、`infrastructure/`、`scripts/`、`tests/unit/`、`tests/integration/`（各目录放 `__init__.py` 空包文件）；
-  - `config.toml`（默认配置模板，见 PRD 8.1 各键默认值：保留 1 天、02:00、schema_only=true、notify type=log 等）；
+  - `configs/instance-*.toml`（每实例一份配置，见 PRD 8.1 各键默认值：保留 1 天、02:00、schema_only=true、notify type=log 等）；
   - `requirements.txt`（空文件，注明 v1 纯标准库）；`.gitignore`（`logs/`、`*.sql.gz`、`__pycache__/`、`.pwd`）。
 - **验收**：目录树与计划一致；`python --version` 显示 3.13.x；`python -m unittest discover -s tests -v` 可运行（0 用例通过即算过）。
 - **不回归约束**：暂无前序代码；本步骤不产生业务逻辑。
 
 ### 步骤 02：配置加载与校验
+
+> **当前进度**：`infrastructure/config_loader.py` 已实现 TOML 加载、强类型值对象、默认值填充、枚举/路径/标识符校验、备份范围语义校验、密码环境变量解析和 `safe_summary()` 脱敏摘要。已完成 `python -m py_compile` 和实例 A/B 配置的加载冒烟检查；计划内的 `tests/unit/test_config_loader.py` 尚未交付，因此整体状态保持「进行中」。
 
 - **目标**：读取 TOML + 环境变量，输出强类型配置对象，错误信息清晰。
 - **新增**：`infrastructure/config_loader.py`，`tests/unit/test_config_loader.py`。

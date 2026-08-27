@@ -9,7 +9,7 @@ MySQL 每日定时备份系统：全量逻辑备份（mysqldump）+ 校验 + 保
 
 ```text
 mysql-daily-scheduled-backup/
-├── config.toml              # 默认配置模板（每实例一份）
+├── configs/                # 每实例一份配置（instance-a/instance-b）+ .env 凭据（.env 已 gitignore）
 ├── requirements.txt         # v1 为空（纯标准库），预留
 ├── docx/
 │   ├── PRD.md               # 产品需求文档
@@ -17,9 +17,38 @@ mysql-daily-scheduled-backup/
 ├── application/             # 应用层：main.py / cli.py（步骤 11）
 ├── trigger/                 # 触发层：RunBackupCommandHandler 等（步骤 10）
 ├── domain/                  # 领域层：model / services / events / repositories（步骤 04-05）
-├── infrastructure/          # 基础设施层：mysqldump/mysql/文件/压缩/通知等适配（步骤 02-03, 06-09）
-├── scripts/                 # 部署与恢复脚本（步骤 12）
+├── infrastructure/
+│   └── config_loader.py     # 步骤 02：TOML + 环境变量 → 强类型 AppConfig
+├── scripts/                 # 运行包装脚本（依赖 application/main.py，入口在步骤 11 实现）
 └── tests/                   # unit / integration（随步骤新增）
 ```
 
-> 当前状态：步骤 01 项目骨架（目录 + 配置模板）已完成，业务代码按 [docx/PLAN.md](docx/PLAN.md) 逐步实现。
+> 当前状态：
+>
+> - 步骤 01 项目骨架已完成；配置拆分为 `configs/instance-a.toml`、`configs/instance-b.toml` 和被 git 忽略的 `configs/.env`。
+> - 步骤 02 配置加载器 `infrastructure/config_loader.py` 已实现：TOML 解析、默认值、类型/枚举校验、备份范围语义校验、密码环境变量解析和脱敏摘要。
+> - 步骤 02 的计划内单元测试尚未新增；命令行入口（步骤 11）也未实现，因此 `scripts/run_backup.*` 目前只是部署流程的预留包装脚本。
+
+## 使用配置加载器
+
+CLI 将在后续步骤提供。当前可先在代码或临时脚本中调用 loader：
+
+```python
+from pathlib import Path
+from infrastructure.config_loader import load_config
+
+config = load_config(Path("configs/instance-a.toml"))
+print(config.safe_summary())
+```
+
+真实运行前，请先把实例对应的环境变量写入 `configs/.env`（该文件已被 git 忽略），或在执行环境中直接设置变量。`safe_summary()` 不包含数据库密码明文。
+
+## 提交与凭据安全
+
+提交前不要移除 `.gitignore` 中的 `.env` 规则。可以使用以下命令确认真实凭据文件未被跟踪：
+
+```bash
+git check-ignore -v configs/.env
+```
+
+如无输出，必须先修复忽略规则后再提交。

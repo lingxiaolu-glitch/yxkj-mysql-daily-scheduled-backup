@@ -1,0 +1,50 @@
+# ============================================================
+# 实例 A 配置
+# 生产地址：117.72.97.228:13306
+# 本地测试时：dest_dir 改为本地目录
+# 凭据：configs/.env（已 gitignore，勿提交、勿写死密码）
+# ============================================================
+
+[mysql]
+host = "117.72.97.228"        # 实例 A 地址
+port = 13306
+user = "root"                 # 建议生产改用最小权限备份账号（PRD 9.4）
+password_env = "MYSQL_BACKUP_PASSWORD_A"   # 密码在 configs/.env 中
+
+[backup]
+dest_dir = "/data/backup/mysql/instance-a"   # 每实例独立目录，避免 manifest 互相覆盖
+databases = ["all"]                         # 自动枚举该实例全部业务库
+exclude_databases = ["information_schema", "performance_schema", "sys", "mysql"]
+mysqldump_path = "mysqldump"
+compress = "gzip"                           # gzip | zstd | none
+schema_only = true                          # 额外输出仅表结构文件
+extra_args = []                             # 如 ["--hex-blob"]
+retry_times = 1                             # 单库失败重试次数
+lock_wait_timeout = 3600                    # 等待上一轮结束的秒数（0=直接跳过）
+
+[retention]
+days = 1                                    # 日备保留 1 天
+weekly = 0
+monthly = 0
+enabled = true
+
+[schedule]
+time = "02:00"
+timezone = "Asia/Shanghai"
+
+[verify]
+level = "L1"                                # L0 | L1 | L2
+shadow_db_prefix = "restore_check_"
+sample_tables = []                          # L2 行数抽样比对表，空=仅比对表数量
+
+[notify]
+enabled = true
+on_success = false
+on_failure = true
+type = "log"
+
+[log]
+level = "INFO"
+dir = "logs/instance-a"                     # 每实例独立日志目录
+max_bytes = 10485760
+backup_count = 7
