@@ -18,18 +18,22 @@ mysql-daily-scheduled-backup/
 ├── trigger/                 # 触发层：RunBackupCommandHandler 等（步骤 10）
 ├── domain/                  # 领域层：model / services / events / repositories（步骤 04-05）
 ├── infrastructure/
-│   └── config_loader.py     # 步骤 02：TOML + 环境变量 → 强类型 AppConfig
+│   ├── config_loader.py     # 步骤 02：TOML + 环境变量 → 强类型 AppConfig
+│   └── logging_utils.py     # 步骤 03：run_id 日志、轮转与脱敏
 ├── scripts/                 # 运行包装脚本（依赖 application/main.py，入口在步骤 11 实现）
 └── tests/
     └── unit/
-        └── test_config_loader.py  # 配置加载单元测试
+        ├── test_config_loader.py  # 配置加载单元测试
+        └── test_logging_utils.py  # 日志与脱敏单元测试
 ```
 
 > 当前状态：
 >
 > - 步骤 01 项目骨架已完成；配置拆分为 `configs/instance-a.toml`、`configs/instance-b.toml` 和被 git 忽略的 `configs/.env`。
 > - 步骤 02 配置加载器 `infrastructure/config_loader.py` 已实现：TOML 解析、默认值、类型/枚举校验、备份范围语义校验、密码环境变量解析和脱敏摘要。
-> - 步骤 02 单元测试已补齐，`python -m unittest discover -s tests -v` 当前 15 个用例全部通过。
+> - 步骤 02 单元测试已补齐。
+> - 步骤 03 日志与脱敏工具已实现：run_id 贯穿、按大小轮转、目录/日志权限、已知密码遮蔽、命令行凭据遮蔽和常见 URL 凭据脱敏。
+> - 当前 `python -m unittest discover -s tests -v` 共 30 个用例全部通过。
 > - 命令行入口（步骤 11）尚未实现，因此 `scripts/run_backup.*` 目前只是部署流程的预留包装脚本。
 
 ## 使用配置加载器

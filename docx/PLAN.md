@@ -19,7 +19,7 @@
 | --- | --- | --- | --- | --- |
 | 01 | 项目骨架 | 目录结构、空包、configs/ 多实例配置模板、requirements.txt、.gitignore | — | ✅ |
 | 02 | 配置加载与校验 | `infrastructure/config_loader.py` + 完整默认配置 | 01 | ✅ |
-| 03 | 日志与脱敏 | `infrastructure/logging_utils.py`（run_id、轮转、敏感信息脱敏） | 01 | ⬜ |
+| 03 | 日志与脱敏 | `infrastructure/logging_utils.py`（run_id、轮转、敏感信息脱敏） | 01 | ✅ |
 | 04 | 领域模型与事件 | `domain/model/*`、`domain/events.py`、`domain/repositories.py` | 02 | ⬜ |
 | 05 | 领域服务 | `domain/services/backup_execution.py`、`retention.py`、`verification.py` | 04 | ⬜ |
 | 06 | 时钟/锁/存储/压缩适配 | `system_clock.py`、`run_lock.py`、`file_storage.py`、`compressor.py` | 03, 04 | ⬜ |
@@ -59,6 +59,8 @@
 - **不回归约束**：仅新增，不触碰其他模块。
 
 ### 步骤 03：日志与脱敏
+
+> **当前进度**：`logging_utils.py` 和 `test_logging_utils.py` 已交付。支持字符串/数值日志级别、目录自动创建、POSIX 目录权限尽力而为、按大小轮转、统一时间格式、run_id 注入；脱敏支持已知值、命令行密码选项、URL userinfo 和常见 query token。当前 30 个单元测试全部通过。
 
 - **目标**：全项目统一日志（结构化字段、run_id、轮转）与敏感信息脱敏工具。
 - **新增**：`infrastructure/logging_utils.py`，`tests/unit/test_logging_utils.py`。
