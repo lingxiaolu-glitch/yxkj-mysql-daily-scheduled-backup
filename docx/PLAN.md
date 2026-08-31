@@ -20,7 +20,7 @@
 | 01 | 项目骨架 | 目录结构、空包、configs/ 多实例配置模板、requirements.txt、.gitignore | — | ✅ |
 | 02 | 配置加载与校验 | `infrastructure/config_loader.py` + 完整默认配置 | 01 | ✅ |
 | 03 | 日志与脱敏 | `infrastructure/logging_utils.py`（run_id、轮转、敏感信息脱敏） | 01 | ✅ |
-| 04 | 领域模型与事件 | `domain/model/*`、`domain/events.py`、`domain/repositories.py` | 02 | ⬜ |
+| 04 | 领域模型与事件 | `domain/model/*`、`domain/events.py`、`domain/repositories.py` | 02 | ✅ |
 | 05 | 领域服务 | `domain/services/backup_execution.py`、`retention.py`、`verification.py` | 04 | ⬜ |
 | 06 | 时钟/锁/存储/压缩适配 | `system_clock.py`、`run_lock.py`、`file_storage.py`、`compressor.py` | 03, 04 | ⬜ |
 | 07 | MySQL 防腐层与网关 | `infrastructure/mysqldump_client.py`、`mysql_client.py` | 04, 06 | ⬜ |
@@ -73,8 +73,10 @@
 
 ### 步骤 04：领域模型、领域事件与仓库接口
 
+> **当前进度**：值对象（DbName、BackupTime、FileName、Compression、Availability、ExitCode、DumpResult 等）、单库任务重试状态机、备份产物校验/删除/恢复门禁、BackupRun 聚合状态机、七个领域事件和 Repository/DumpExecutor/MySqlGateway/ArtifactStorage/Compressor/Notifier/Clock 端口已交付；52 个单元测试全部通过。
+
 - **目标**：实现 DDD 领域核心（纯规则、零 IO、零 subprocess、时间用 Clock 注入），这是全项目"不被改坏"的地基。
-- **新增**：`domain/model/value_objects.py`、`domain/model/backup_run.py`（聚合根）、`domain/model/database_backup_task.py`、`domain/model/backup_artifact.py`、`domain/events.py`、`domain/repositories.py`，`tests/unit/domain/*`。
+- **新增**：`domain/model/value_objects/value_objects.py`、`domain/model/aggregates/backup_run.py`（聚合根）、`domain/model/entities/database_backup_task.py`、`domain/model/entities/backup_artifact.py`、`domain/events.py`、`domain/repositories.py`，`tests/unit/domain/*`。
 - **建议接口**：
   - 值对象：`DbName`、`BackupTime`、`FileName`（命名规则 `{db}_{YYYYMMDD}_{HHMMSS}.sql.gz` / `{db}_schema_...`）、`Compression(GZIP/ZSTD/NONE)`、`BackupScope(ALL/LIST/TABLES)`、`RetentionTier(DAILY/WEEKLY/MONTHLY)`、`VerificationLevel(L0/L1/L2)`、`Availability(Available/Unavailable/PendingVerify)`、`ExitCode(0/1/2)`、`Sha256`、`SizeBytes`、`DumpResult`；
   - 实体/聚合：`BackupRun`（start/finish/mark_task_result/计算整体状态与退出码）、`DatabaseBackupTask`（retry、attempts）、`BackupArtifact`（verify、mark_deleted、可用性门禁）；

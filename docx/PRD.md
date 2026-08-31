@@ -397,10 +397,13 @@ mysql-daily-scheduled-backup/
 │   └── restore_backup.py          # 触发层：RestoreBackupCommandHandler
 ├── domain/
 │   ├── model/
-│   │   ├── backup_run.py          # 聚合根
-│   │   ├── database_backup_task.py
-│   │   ├── backup_artifact.py
-│   │   └── value_objects.py       # DbName/Compression/RetentionTier/...
+│   │   ├── aggregates/
+│   │   │   └── backup_run.py          # 聚合根
+│   │   ├── entities/
+│   │   │   ├── database_backup_task.py
+│   │   │   └── backup_artifact.py
+│   │   └── value_objects/
+│   │       └── value_objects.py       # DbName/Compression/RetentionTier/...
 │   ├── services/
 │   │   ├── backup_execution.py
 │   │   ├── retention.py           # 纯函数 CleanupPlan

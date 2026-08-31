@@ -16,7 +16,17 @@ mysql-daily-scheduled-backup/
 │   └── PLAN.md              # 开发计划
 ├── application/             # 应用层：main.py / cli.py（步骤 11）
 ├── trigger/                 # 触发层：RunBackupCommandHandler 等（步骤 10）
-├── domain/                  # 领域层：model / services / events / repositories（步骤 04-05）
+├── domain/
+│   ├── events.py            # 步骤 04：领域事件
+│   ├── repositories.py      # 步骤 04：仓库/网关/时钟等端口
+│   └── model/
+│       ├── aggregates/              # 步骤 04：聚合根
+│       │   └── backup_run.py        # 备份运行聚合根
+│       ├── entities/                # 步骤 04：实体对象
+│       │   ├── backup_artifact.py   # 备份产物与恢复门禁
+│       │   └── database_backup_task.py # 单库任务与重试
+│       └── value_objects/           # 步骤 04：值对象
+│           └── value_objects.py     # 领域值对象
 ├── infrastructure/
 │   ├── config_loader.py     # 步骤 02：TOML + 环境变量 → 强类型 AppConfig
 │   └── logging_utils.py     # 步骤 03：run_id 日志、轮转与脱敏
@@ -24,7 +34,9 @@ mysql-daily-scheduled-backup/
 └── tests/
     └── unit/
         ├── test_config_loader.py  # 配置加载单元测试
-        └── test_logging_utils.py  # 日志与脱敏单元测试
+        ├── test_logging_utils.py  # 日志与脱敏单元测试
+        └── domain/
+            └── test_models.py     # 领域模型、状态机与事件测试
 ```
 
 > 当前状态：
@@ -33,7 +45,8 @@ mysql-daily-scheduled-backup/
 > - 步骤 02 配置加载器 `infrastructure/config_loader.py` 已实现：TOML 解析、默认值、类型/枚举校验、备份范围语义校验、密码环境变量解析和脱敏摘要。
 > - 步骤 02 单元测试已补齐。
 > - 步骤 03 日志与脱敏工具已实现：run_id 贯穿、按大小轮转、目录/日志权限、已知密码遮蔽、命令行凭据遮蔽和常见 URL 凭据脱敏。
-> - 当前 `python -m unittest discover -s tests -v` 共 30 个用例全部通过。
+> - 步骤 04 领域核心已实现：文件命名值对象、单库任务重试状态机、备份产物恢复门禁、运行聚合成功/部分失败/全部失败退出码、领域事件和端口契约。
+> - 当前 `python -m unittest discover -s tests -v` 共 52 个用例全部通过。
 > - 命令行入口（步骤 11）尚未实现，因此 `scripts/run_backup.*` 目前只是部署流程的预留包装脚本。
 
 ## 使用配置加载器
