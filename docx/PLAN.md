@@ -21,7 +21,7 @@
 | 02 | 配置加载与校验 | `infrastructure/config_loader.py` + 完整默认配置 | 01 | ✅ |
 | 03 | 日志与脱敏 | `infrastructure/logging_utils.py`（run_id、轮转、敏感信息脱敏） | 01 | ✅ |
 | 04 | 领域模型与事件 | `domain/model/*`、`domain/events.py`、`domain/repositories.py` | 02 | ✅ |
-| 05 | 领域服务 | `domain/services/backup_execution.py`、`retention.py`、`verification.py` | 04 | ⬜ |
+| 05 | 领域服务 | `domain/services/backup_execution.py`、`retention.py`、`verification.py` | 04 | ✅ |
 | 06 | 时钟/锁/存储/压缩适配 | `system_clock.py`、`run_lock.py`、`file_storage.py`、`compressor.py` | 03, 04 | ⬜ |
 | 07 | MySQL 防腐层与网关 | `infrastructure/mysqldump_client.py`、`mysql_client.py` | 04, 06 | ⬜ |
 | 08 | manifest 仓库与 L0/L1 校验实现 | `infrastructure/manifest_repository.py`、`verifiers.py` | 05, 06, 07 | ⬜ |
@@ -86,6 +86,8 @@
 - **不回归约束**：本步骤之后，领域接口为该系统的公共契约；后续只能兼容性演进。
 
 ### 步骤 05：领域服务
+
+> **当前进度**：`BackupExecutionService`（遍历任务 → DumpExecutor 端口 → 更新任务状态 → 失败重试 → 聚合完成，部分失败隔离）、`RetentionService.plan -> CleanupPlan`（日备过期 + 周/月标记保护，纯函数无 IO）、`VerificationService`（注入 L0/L1/L2 校验器 → 编排 → 映射 Availability）已交付；`tests/unit/domain/test_services.py` 16 个用例覆盖部分失败隔离、重试次数、CleanupPlan 计算、校验结果到 Availability 映射；当前 `python -m unittest discover -s tests -v` 共 68 个用例全部通过。
 
 - **目标**：备份执行编排、保留策略纯函数、校验编排——全部纯领域逻辑。
 - **新增**：`domain/services/backup_execution.py`、`retention.py`、`verification.py`，`tests/unit/domain/test_services.py`。
