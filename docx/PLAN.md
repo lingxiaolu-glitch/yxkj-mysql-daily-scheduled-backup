@@ -22,7 +22,7 @@
 | 03 | 日志与脱敏 | `infrastructure/logging_utils.py`（run_id、轮转、敏感信息脱敏） | 01 | ✅ |
 | 04 | 领域模型与事件 | `domain/model/*`、`domain/events.py`、`domain/repositories.py` | 02 | ✅ |
 | 05 | 领域服务 | `domain/services/backup_execution.py`、`retention.py`、`verification.py` | 04 | ✅ |
-| 06 | 时钟/锁/存储/压缩适配 | `system_clock.py`、`run_lock.py`、`file_storage.py`、`compressor.py` | 03, 04 | ⬜ |
+| 06 | 时钟/锁/存储/压缩适配 | `system_clock.py`、`run_lock.py`、`file_storage.py`、`compressor.py` | 03, 04 | ✅ |
 | 07 | MySQL 防腐层与网关 | `infrastructure/mysqldump_client.py`、`mysql_client.py` | 04, 06 | ⬜ |
 | 08 | manifest 仓库与 L0/L1 校验实现 | `infrastructure/manifest_repository.py`、`verifiers.py` | 05, 06, 07 | ⬜ |
 | 09 | 通知适配 | `infrastructure/notifiers.py`（LogNotifier，预留 SMTP/Webhook） | 04, 06 | ⬜ |
@@ -99,6 +99,8 @@
 - **不回归约束**：不修改 04 领域模型；服务只依赖领域接口。
 
 ### 步骤 06：时钟、运行锁、文件存储、压缩适配
+
+> **当前进度**：`SystemClock`（Clock 端口）、`RunLock`（锁文件 O_CREAT|O_EXCL 互斥、lock_wait_timeout 等待/跳过）、`LocalFileStorage`（写流/读/删/列目录，双重防越界 + resolve 兜底，0600/0700 Windows 尽力而为）、`GzipCompressor/NoopCompressor`（zstd 预留）已交付；`tests/unit/infrastructure/*` 19 个用例覆盖锁重入/超时跳过、删除越界拦截、压缩可解压且非空、0600 权限（Windows 跳过）；当前 `python -m unittest discover -s tests -v` 共 87 个用例全部通过。
 
 - **目标**：把领域端口落地为基础设施实现（真实 IO 全部在此层）。
 - **新增**：`infrastructure/system_clock.py`、`infrastructure/run_lock.py`、`infrastructure/file_storage.py`、`infrastructure/compressor.py`，`tests/unit/infrastructure/*`。

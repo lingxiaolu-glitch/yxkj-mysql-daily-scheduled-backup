@@ -33,15 +33,24 @@ mysql-daily-scheduled-backup/
 │       └── verification.py          # L0/L1/L2 校验编排
 ├── infrastructure/
 │   ├── config_loader.py     # 步骤 02：TOML + 环境变量 → 强类型 AppConfig
-│   └── logging_utils.py     # 步骤 03：run_id 日志、轮转与脱敏
+│   ├── logging_utils.py     # 步骤 03：run_id 日志、轮转与脱敏
+│   ├── system_clock.py      # 步骤 06：真实时钟（Clock 端口）
+│   ├── run_lock.py          # 步骤 06：运行锁（并发保护 FR-14）
+│   ├── file_storage.py      # 步骤 06：本地文件存储（ArtifactStorage 端口）
+│   └── compressor.py        # 步骤 06：gzip/noop 压缩（zstd 预留）
 ├── scripts/                 # 运行包装脚本（依赖 application/main.py，入口在步骤 11 实现）
 └── tests/
     └── unit/
         ├── test_config_loader.py  # 配置加载单元测试
         ├── test_logging_utils.py  # 日志与脱敏单元测试
-        └── domain/
-            ├── test_models.py     # 领域模型、状态机与事件测试
-            └── test_services.py   # 领域服务（执行/保留/校验）测试
+        ├── domain/
+        │   ├── test_models.py     # 领域模型、状态机与事件测试
+        │   └── test_services.py   # 领域服务（执行/保留/校验）测试
+        └── infrastructure/        # 步骤 06：基础设施单元测试
+            ├── test_system_clock.py  # 时钟适配器测试
+            ├── test_run_lock.py      # 运行锁测试
+            ├── test_file_storage.py  # 文件存储测试
+            └── test_compressor.py    # 压缩适配器测试
 ```
 
 > 当前状态：
@@ -52,7 +61,8 @@ mysql-daily-scheduled-backup/
 > - 步骤 03 日志与脱敏工具已实现：run_id 贯穿、按大小轮转、目录/日志权限、已知密码遮蔽、命令行凭据遮蔽和常见 URL 凭据脱敏。
 > - 步骤 04 领域核心已实现：文件命名值对象、单库任务重试状态机、备份产物恢复门禁、运行聚合成功/部分失败/全部失败退出码、领域事件和端口契约。
 > - 步骤 05 领域服务已实现：备份执行编排（DumpExecutor 端口 + 失败重试 + 部分失败隔离）、保留策略纯函数（日/周/月 → CleanupPlan）、校验编排（校验器注入 → Availability 映射）。
-> - 当前 `python -m unittest discover -s tests -v` 共 68 个用例全部通过。
+> - 步骤 06 基础设施适配已实现：SystemClock（Clock 端口）、RunLock（锁文件并发保护）、LocalFileStorage（写流/列目录/防越界删除、0600/0700）、Gzip/Noop 压缩（zstd 预留），配套 19 个基础设施单测。
+> - 当前 `python -m unittest discover -s tests -v` 共 87 个用例全部通过（Windows 跳过 1 个权限用例）。
 > - 命令行入口（步骤 11）尚未实现，因此 `scripts/run_backup.*` 目前只是部署流程的预留包装脚本。
 
 ## 使用配置加载器
