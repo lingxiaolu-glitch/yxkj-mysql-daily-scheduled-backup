@@ -24,7 +24,7 @@
 | 05 | 领域服务 | `domain/services/backup_execution.py`、`retention.py`、`verification.py` | 04 | ✅ |
 | 06 | 时钟/锁/存储/压缩适配 | `system_clock.py`、`run_lock.py`、`file_storage.py`、`compressor.py` | 03, 04 | ✅ |
 | 07 | MySQL 防腐层与网关 | `infrastructure/mysqldump_client.py`、`mysql_client.py` | 04, 06 | ✅ |
-| 08 | manifest 仓库与 L0/L1 校验实现 | `infrastructure/manifest_repository.py`、`verifiers.py` | 05, 06, 07 | ⬜ |
+| 08 | manifest 仓库与 L0/L1 校验实现 | `infrastructure/manifest_repository.py`、`verifiers.py` | 05, 06, 07 | ✅ |
 | 09 | 通知适配 | `infrastructure/notifiers.py`（LogNotifier，预留 SMTP/Webhook） | 04, 06 | ⬜ |
 | 10 | 触发层命令处理器 | `trigger/run_backup.py`、`restore_backup.py`、`cleanup.py` | 05–09 | ⬜ |
 | 11 | 应用层入口 | `application/cli.py` + `application/main.py`（装配、子命令、退出码） | 03, 10 | ⬜ |
@@ -126,6 +126,8 @@
 - **不回归约束**：适配器只实现领域端口，不反向依赖触发/应用层。
 
 ### 步骤 08：manifest 仓库与 L0/L1 校验实现
+
+> **当前进度**：`JsonManifestRepository` 已支持按日期落盘 manifest/status、原子写入、损坏文件校验；`FileIntegrityVerifier` 与 `StructureVerifier` 已实现 L0/L1 校验；当前共 115 个用例，114 个通过、1 个 Windows 权限用例跳过。
 
 - **目标**：备份清单落盘（可审计）+ L0 文件级 / L1 结构级校验。
 - **新增**：`infrastructure/manifest_repository.py`、`infrastructure/verifiers.py`，`tests/unit/infrastructure/*`。
