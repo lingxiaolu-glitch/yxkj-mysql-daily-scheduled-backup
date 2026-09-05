@@ -128,18 +128,48 @@ class MysqldumpClientTests(unittest.TestCase):
             self.storage.read_bytes(self.client.last_stored.relative_path),
         )
 
-    def test_schema_only_adds_no_data_and_schema_prefix(self) -> None:
-        """schema_only 配置：加 --no-data，文件名带 schema 前缀。"""
+    def test_schema_only_generates_full_and_schema_without_data(self) -> None:
+        """schema_only 配置：先完整备份，再额外输出带 --no-data 的 schema 文件。"""
 
-        # 实例 A schema_only=true。
+        # 实例 A schema_only=true；两次子进程都成功。
         fake = FakeProcess(stdout=b"x", returncode=0)
         with mock.patch("subprocess.Popen", return_value=fake) as popen:
-            self.client.dump(self.task())
+            result = self.client.dump(self.task())
 
-        # 命令含 --no-data。
-        self.assertIn("--no-data", popen.call_args.args[0])
-        # 产物相对路径落在日期目录且文件名带 schema 前缀。
-        self.assertIn("shop_schema_", self.client.last_stored.relative_path)
+        self.assertTrue(result.success)
+        # 第一次调用是完整备份，不能包含 --no-data。
+        full_args = popen.call_args_list[0].args[0]
+        self.assertNotIn("--no-data", full_args)
+        self.assertIn("shop", full_args)
+
+        # 第二次调用是额外 schema 文件，必须包含 --no-data。
+        schema_args = popen.call_args_list[1].args[0]
+        self.assertIn("--no-data", schema_args)
+        self.assertIn("shop", schema_args)
+
+        # 两个产物都落盘：完整文件无 schema 前缀，schema 文件有前缀。
+        self.assertIn("shop_", self.client.last_stored.relative_path)
+        self.assertIn("shop_schema_", self.client.last_schema_stored.relative_path)
+        self.assertNotIn("shop_schema_", self.client.last_stored.relative_path)
+
+    def test_schema_failure_removes_full_artifact(self) -> None:
+        """额外 schema 文件失败时，完整文件也必须清理，避免不可恢复产物被误用。"""
+
+        # 第一次完整成功，第二次 schema 失败。
+        full = FakeProcess(stdout=b"full", returncode=0)
+        schema_failed = FakeProcess(
+            stdout=b"partial-schema",
+            stderr=b"schema failed",
+            returncode=3,
+        )
+        with mock.patch("subprocess.Popen", side_effect=[full, schema_failed]):
+            result = self.client.dump(self.task())
+
+        self.assertFalse(result.success)
+        self.assertEqual(3, result.return_code)
+        self.assertIsNone(self.client.last_stored)
+        self.assertIsNone(self.client.last_schema_stored)
+        self.assertEqual((), self.storage.list_relative_paths())
 
     def test_tables_scope_uses_db_and_table_args(self) -> None:
         """库表组合：不用 --databases，改用「库名 + 表名列表」。"""

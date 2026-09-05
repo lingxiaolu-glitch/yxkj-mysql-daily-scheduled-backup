@@ -22,7 +22,7 @@ from domain.model.value_objects import (
     VerificationLevel,
 )
 from infrastructure.file_storage import LocalFileStorage
-from infrastructure.verifiers import FileIntegrityVerifier, StructureVerifier
+from infrastructure.verifiers import FileIntegrityVerifier, RestoreVerifier, StructureVerifier
 
 # L0/L1 成功样例 SQL。
 GOOD_SQL = (
@@ -168,3 +168,81 @@ class VerifierTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class _FakeRestoreGateway:
+    """支持影子库恢复的网关假实现。"""
+
+    def __init__(self, source_tables=1, shadow_tables=1):
+        self.source_tables = source_tables
+        self.shadow_tables = shadow_tables
+        self.restore_calls = []
+        self.dropped = []
+
+    def count_tables(self, database: DbName) -> int:
+        return self.shadow_tables if str(database).startswith("restore_check_") else self.source_tables
+
+    def create_shadow_database(self, source, shadow):
+        return None
+
+    def drop_database(self, database):
+        self.dropped.append(str(database))
+
+    def count_table_rows(self, database, table):
+        return 1
+
+    def restore(self, sql_file, database, one_database=False, rewrite_to_database=None):
+        self.restore_calls.append((sql_file, database, one_database, rewrite_to_database))
+
+
+class RestoreVerifierTests(unittest.TestCase):
+    """L2 影子库恢复校验器。"""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.storage = LocalFileStorage(self.root)
+        self.now = _time()
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def test_restore_verifier_success_restores_and_cleans_shadow(self) -> None:
+        """L2 成功：导入影子库、比对成功并清理。"""
+        file_name = FileName(DbName("shop"), self.now, Compression.GZIP)
+        artifact = _artifact(
+            self.storage,
+            file_name,
+            self.now,
+            gzip.compress(GOOD_SQL.encode("utf-8")),
+        )
+        gateway = _FakeRestoreGateway(source_tables=2, shadow_tables=2)
+        verifier = RestoreVerifier(
+            self.storage,
+            gateway,
+            "restore_check_",
+            temp_dir=self.root,
+        )
+        result = verifier.verify(artifact)
+
+        self.assertTrue(result.success)
+        self.assertEqual(1, len(gateway.restore_calls))
+        sql_file, target, one_database, rewrite = gateway.restore_calls[0]
+        self.assertEqual("restore_check_shop", str(target))
+        self.assertEqual("restore_check_shop", str(rewrite))
+        self.assertIn("restore_check_shop", gateway.dropped)
+        self.assertFalse(Path(sql_file).exists())
+
+    def test_restore_verifier_failure_on_table_mismatch(self) -> None:
+        """影子库表数量不一致 -> L2 失败。"""
+        file_name = FileName(DbName("shop"), self.now, Compression.GZIP)
+        artifact = _artifact(
+            self.storage,
+            file_name,
+            self.now,
+            gzip.compress(GOOD_SQL.encode("utf-8")),
+        )
+        gateway = _FakeRestoreGateway(source_tables=2, shadow_tables=1)
+        verifier = RestoreVerifier(self.storage, gateway, "restore_check_", temp_dir=self.root)
+        result = verifier.verify(artifact)
+        self.assertFalse(result.success)
+        self.assertIn("不一致", result.reason)

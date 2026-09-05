@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 # subprocess 执行外部 mysql 命令。
+import re
 import subprocess
 
 # 领域值对象与端口。
@@ -120,20 +121,58 @@ class MysqlCliClient:
         sql = f"SELECT COUNT(*) FROM `{database}`.`{table}`"
         return self._parse_int(self._run(sql))
 
-    def restore(self, sql_file: str, database: DbName, one_database: bool = False) -> None:
-        """把 SQL 备份文件导入目标库（全库/单库）。"""
+    def restore(
+        self,
+        sql_file: str,
+        database: DbName,
+        one_database: bool = False,
+        rewrite_to_database: DbName | None = None,
+    ) -> None:
+        """把 SQL 备份文件导入目标库（全库/单库）。
+
+        rewrite_to_database 用于 L2 影子库演练：把 dump 中的
+        CREATE DATABASE / USE 改写为目标影子库，避免恢复回源库。
+        """
 
         # 目标库作为位置参数；one_database 时加 --one-database。
         argv = [*self._base_args(), str(database)]
         if one_database:
             argv.insert(-1, "--one-database")
 
-        # 以文件作为 stdin 导入，避免把大文件读进内存。
-        try:
-            with open(sql_file, "rb") as handle:
-                proc = subprocess.run(argv, stdin=handle, capture_output=True)
-        except OSError as exc:
-            raise MySqlCliError(f"无法启动 mysql CLI：{exc}") from exc
+        # 默认直接以文件作为 stdin 导入，避免把大文件读进内存。
+        input_bytes = None
+        if rewrite_to_database is not None:
+            try:
+                with open(sql_file, mode, encoding="utf-8", errors="replace") as handle:
+                    sql_text = handle.read()
+                # 改写 CREATE DATABASE 与 USE，保证恢复到指定影子库。
+                target = str(rewrite_to_database)
+                sql_text = re.sub(
+                    r"(?im)^\s*CREATE\s+DATABASE\s+(?:IF\s+NOT\s+EXISTS\s+)?`?[^`\s;]+`?",
+                    f"CREATE DATABASE IF NOT EXISTS `{target}`",
+                    sql_text,
+                    count=1,
+                )
+                sql_text = re.sub(
+                    r"(?im)^\s*USE\s+`[^`]+`",
+                    f"USE `{target}`",
+                    sql_text,
+                    count=1,
+                )
+                input_bytes = sql_text.encode("utf-8")
+            except OSError as exc:
+                raise MySqlCliError(f"读取 SQL 文件失败：{exc}") from exc
+            try:
+                proc = subprocess.run(argv, input=input_bytes, capture_output=True)
+            except OSError as exc:
+                raise MySqlCliError(f"无法启动 mysql CLI：{exc}") from exc
+        else:
+            # 以文件作为 stdin 导入，避免把大文件读进内存。
+            try:
+                with open(sql_file, "rb") as handle:
+                    proc = subprocess.run(argv, stdin=handle, capture_output=True)
+            except OSError as exc:
+                raise MySqlCliError(f"无法启动 mysql CLI：{exc}") from exc
 
         # 非零退出码：脱敏后抛出领域异常。
         if proc.returncode != 0:

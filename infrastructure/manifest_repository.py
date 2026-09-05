@@ -125,6 +125,14 @@ class JsonManifestRepository:
         items = self._read_document(path) or []
         return tuple(self._run_from_dict(item) for item in items)
 
+    def find_all(self) -> tuple[BackupRun, ...]:
+        """读取仓库内全部备份运行，供保留清理和审计使用。"""
+        runs: list[BackupRun] = []
+        for path in sorted(self._manifest_dir.glob("manifest_*.json")):
+            for item in self._read_document(path) or []:
+                runs.append(self._run_from_dict(item))
+        return tuple(runs)
+
     # ------------------------------------------------------------------
     # JSON I/O
     # ------------------------------------------------------------------
@@ -221,6 +229,7 @@ class JsonManifestRepository:
                 for item in task.history
             ],
             "artifact": cls._artifact_to_dict(task.artifact) if task.artifact is not None else None,
+            "schema_artifact": cls._artifact_to_dict(task.schema_artifact) if task.schema_artifact is not None else None,
         }
 
     @classmethod
@@ -259,7 +268,7 @@ class JsonManifestRepository:
             "database_count": len(run.tasks),
             "success_count": success,
             "failed_count": failed,
-            "artifact_count": sum(1 for task in run.tasks if task.artifact is not None),
+            "artifact_count": sum(len(task.all_artifacts) for task in run.tasks),
         }
 
     # ------------------------------------------------------------------
@@ -310,12 +319,19 @@ class JsonManifestRepository:
 
         artifact_data = data.get("artifact")
         artifact = cls._artifact_from_dict(artifact_data) if artifact_data is not None else None
+        schema_artifact_data = data.get("schema_artifact")
+        schema_artifact = (
+            cls._artifact_from_dict(schema_artifact_data)
+            if schema_artifact_data is not None
+            else None
+        )
         task = DatabaseBackupTask(
             db_name=DbName(cls._require_str(data, "db_name")),
             retry_times=int(data.get("retry_times", 0)),
             attempts=int(data.get("attempts", 0)),
             status=TaskStatus(cls._require_str(data, "status")),
             artifact=artifact,
+            schema_artifact=schema_artifact,
             retried=bool(data.get("retried", False)),
             elapsed_seconds=(
                 float(data["elapsed_seconds"]) if data.get("elapsed_seconds") is not None else None

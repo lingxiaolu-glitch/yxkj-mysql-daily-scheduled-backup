@@ -20,6 +20,7 @@ compress = "gzip"                           # gzip | zstd | none
 schema_only = true                          # 额外输出仅表结构文件
 extra_args = []                             # 如 ["--hex-blob"]
 retry_times = 1                             # 单库失败重试次数
+min_free_bytes = 5368709120                    # 磁盘预检最低可用空间（5GiB）
 lock_wait_timeout = 3600                    # 等待上一轮结束的秒数（0=直接跳过）
 
 [retention]

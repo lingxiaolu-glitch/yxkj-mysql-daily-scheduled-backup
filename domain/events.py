@@ -39,6 +39,14 @@ class BackupRunStarted(DomainEvent):
     scope: str # 本次运行范围，例如 all/list/tables。
 
 
+# 并发锁冲突/其他前置条件跳过事件。
+@dataclass(frozen=True)
+class BackupRunSkipped(DomainEvent):
+    """运行因并发锁等原因被跳过。"""
+
+    reason: str # 已脱敏的跳过原因。
+
+
 # 单库成功事件，包含可恢复产物摘要。
 @dataclass(frozen=True)
 class DatabaseBackupSucceeded(DomainEvent):

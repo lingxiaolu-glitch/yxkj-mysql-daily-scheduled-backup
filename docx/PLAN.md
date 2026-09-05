@@ -26,7 +26,7 @@
 | 07 | MySQL 防腐层与网关 | `infrastructure/mysqldump_client.py`、`mysql_client.py` | 04, 06 | ✅ |
 | 08 | manifest 仓库与 L0/L1 校验实现 | `infrastructure/manifest_repository.py`、`verifiers.py` | 05, 06, 07 | ✅ |
 | 09 | 通知适配 | `infrastructure/notifiers.py`（LogNotifier，预留 SMTP/Webhook） | 04, 06 | ✅ |
-| 10 | 触发层命令处理器 | `trigger/run_backup.py`、`restore_backup.py`、`cleanup.py` | 05–09 | ⬜ |
+| 10 | 触发层命令处理器 | `trigger/run_backup.py`、`restore_backup.py`、`cleanup.py` | 05–09 | ✅ |
 | 11 | 应用层入口 | `application/cli.py` + `application/main.py`（装配、子命令、退出码） | 03, 10 | ⬜ |
 | 12 | 集成测试与部署脚本 | `tests/integration/*`、`scripts/install_*`、`restore.sh`、`README.md` | 11 | ⬜ |
 | 13 | 真实环境部署与演练 | 服务器安装、定时任务、首日备份、恢复演练报告 | 12 | ⬜ |
@@ -53,7 +53,7 @@
 - **新增**：`infrastructure/config_loader.py`，`tests/unit/test_config_loader.py`。
 - **建议接口**：
   - `load_config(path: str | Path, env: Mapping[str, str] | None = None) -> AppConfig`
-  - `AppConfig` 各区块：`mysql`（host/port/user/password_env）、`backup`（dest_dir/databases/exclude_databases/mysqldump_path/compress/schema_only/retry_times/lock_wait_timeout）、`retention`（days=1/weekly=0/monthly=0/enabled）、`schedule`（time=“02:00”/timezone）、`verify`（level/shadow_db_prefix/sample_tables）、`notify`（enabled/on_success/on_failure/type）、`log`（level/dir/max_bytes/backup_count）。
+  - `AppConfig` 各区块：`mysql`（host/port/user/password_env）、`backup`（dest_dir/databases/exclude_databases/mysqldump_path/compress/schema_only/extra_args/retry_times/lock_wait_timeout/min_free_bytes）、`retention`（days=1/weekly=0/monthly=0/enabled）、`schedule`（time=“02:00”/timezone）、`verify`（level/shadow_db_prefix/sample_tables）、`notify`（enabled/on_success/on_failure/type）、`log`（level/dir/max_bytes/backup_count）。
   - 密码从 `password_env` 指定环境变量读取，**禁止**打印/写入日志；缺省必填项、非法枚举值时抛 `ConfigError`（含文件/键名）。
 - **验收**：单测覆盖：合法配置、缺必填项、非法枚举（compress/level/notify.type）、密码来自环境变量、`databases=["all"]` 与列表两种形态、多实例 = 每实例一份配置文件（loader 本身单配置）。
 - **不回归约束**：仅新增，不触碰其他模块。
@@ -120,7 +120,7 @@
 
 - **新增**：`infrastructure/mysqldump_client.py`、`infrastructure/mysql_client.py`，`tests/unit/infrastructure/test_mysql_*.py`（mock 子进程）。
 - **建议接口**：
-  - `MysqldumpClient`（ACL）：按版本生成参数（MySQL 8.0：`--set-gtid-purged=OFF`；`--single-transaction --quick --routines --triggers --events --databases db`；schema_only 时加 `--no-data`），流式管道 `mysqldump ... | gzip > xxx.sql.gz`，捕获 stderr（脱敏）、退出码，翻译 `DumpResult` / 抛 `DumpFailed`；
+  - `MysqldumpClient`（ACL）：按版本生成参数（MySQL 8.0：`--set-gtid-purged=OFF`；`--single-transaction --quick --routines --triggers --events --databases db`；schema_only=true 时在完整备份后额外执行 `--no-data` 生成 `{db}_schema_*.sql.gz`），流式管道 `mysqldump ... | gzip > xxx.sql.gz`，捕获 stderr（脱敏）、退出码，翻译 `DumpResult` / 抛 `DumpFailed`；
   - `MysqlCliClient`（MySqlGateway）：`list_databases()`（排除系统库）、`count_tables(db)`、`restore(file_or_sql, db, one_database/仅结构)`、影子库创建/DROP/行数比对。
 - **验收**：mock 子进程断言命令参数正确（8.0 参数、schema_only、retry）、stderr 脱敏、真实调用失败映射为领域异常；本地无 mysqldump 也能全绿。
 - **不回归约束**：适配器只实现领域端口，不反向依赖触发/应用层。
@@ -152,6 +152,8 @@
 - **不回归约束**：仅新增；不改变领域事件定义。
 
 ### 步骤 10：触发层命令处理器
+
+> **当前进度**：`RunBackupCommandHandler` 已实现全链路（运行锁、命令/磁盘预检、枚举库、完整数据+schema 产物、L0/L1/L2 校验、manifest、保留清理、通知）；`RestoreBackupCommandHandler` 与 `CleanupCommandHandler` 已实现；当前共 138 个用例，137 个通过、1 个 Windows 权限用例跳过。
 
 - **目标**：把外部触发（CLI/调度器）翻译为用例调用——PRD 7.3 触发层落位。
 - **新增**：`trigger/run_backup.py`（`RunBackupCommandHandler`）、`trigger/restore_backup.py`（`RestoreBackupCommandHandler`）、`trigger/cleanup.py`（`CleanupCommandHandler`），`tests/unit/trigger/*`。

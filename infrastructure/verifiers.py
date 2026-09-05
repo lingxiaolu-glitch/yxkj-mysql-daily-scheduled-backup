@@ -17,14 +17,16 @@ from __future__ import annotations
 # gzip 解压与 zlib 错误处理；re 统计 CREATE TABLE；Mapping 描述期望表数。
 import gzip
 import re
+import tempfile
 import zlib
+from pathlib import Path
 from collections.abc import Mapping
 
 # 产物实体。
 from domain.model.entities.backup_artifact import BackupArtifact
 
 # 值对象与领域异常。
-from domain.model.value_objects import Compression, DomainError, VerificationLevel
+from domain.model.value_objects import Compression, DbName, DomainError, VerificationLevel
 
 # 领域端口与校验结果。
 from domain.repositories import ArtifactStorage, MySqlGateway
@@ -83,6 +85,13 @@ class FileIntegrityVerifier:
         raise DomainError(f"当前不支持校验压缩格式：{compression.value}")
 
 
+def decode_artifact_sql(storage: ArtifactStorage, artifact: BackupArtifact) -> bytes:
+    """读取并解压备份文件；供 L0/L1/L2 共用。"""
+
+    # 复用 L0 的检查逻辑，避免三处重复实现。
+    return FileIntegrityVerifier(storage)._decode_sql_checked(artifact)
+
+
 class StructureVerifier:
     """L1 结构校验器：CREATE TABLE 数量与源库比对。"""
 
@@ -127,3 +136,101 @@ class StructureVerifier:
             )
 
         return VerificationResult(VerificationLevel.L1, True)
+
+class RestoreVerifier:
+    """L2 恢复级校验器：恢复到影子库并比对表数量/抽样行数。"""
+
+    def __init__(
+        self,
+        storage: ArtifactStorage,
+        gateway: MySqlGateway,
+        shadow_db_prefix: str,
+        sample_tables: tuple[str, ...] = (),
+        expected_counts: Mapping[str, int] | None = None,
+        temp_dir: str | None = None,
+    ) -> None:
+        # 保存存储与 MySQL 网关。
+        self._storage = storage
+        self._gateway = gateway
+        self._shadow_db_prefix = shadow_db_prefix
+        self._sample_tables = tuple(sample_tables)
+        self._expected_counts = dict(expected_counts or {})
+        self._temp_dir = temp_dir
+
+    def verify(self, artifact: BackupArtifact) -> VerificationResult:
+        """执行影子库恢复比对，失败时清理影子库。"""
+        source = artifact.db_name
+        shadow = DbName(f"{self._shadow_db_prefix}{source}")
+
+        # 不校验 schema-only 文件：L2 必须对完整数据产物执行。
+        if artifact.file_name.schema_only:
+            return VerificationResult(
+                VerificationLevel.L2,
+                False,
+                reason="L2 不校验仅表结构文件",
+            )
+
+        try:
+            # 先解码备份内容（gzip 损坏/缺失直接失败）。
+            decoded = decode_artifact_sql(self._storage, artifact)
+
+            # 写入临时 SQL 文件，再交给 mysql CLI 导入。
+            temp = tempfile.NamedTemporaryFile(
+                mode="wb", suffix=".sql", delete=False, dir=self._temp_dir
+            )
+            temp.write(decoded)
+            temp.close()
+
+            # 从干净状态开始，避免上一次演练残留。
+            self._gateway.drop_database(shadow)
+            self._gateway.create_shadow_database(source, shadow)
+
+            try:
+                # 导入到影子库；one_database 保证只进入本次目标库。
+                self._gateway.restore(
+                    temp.name,
+                    shadow,
+                    one_database=True,
+                    rewrite_to_database=shadow,
+                )
+
+                # 表数量比对；支持指定表模式提供期望数量。
+                actual_tables = self._gateway.count_tables(shadow)
+                expected_count = self._expected_counts.get(str(source))
+                if expected_count is None:
+                    expected_count = self._gateway.count_tables(source)
+
+                if actual_tables != expected_count:
+                    return VerificationResult(
+                        VerificationLevel.L2,
+                        False,
+                        reason=f"影子库表数量不一致：{actual_tables}/{expected_count}",
+                    )
+
+                # 抽样行数比对：sample_tables 为 db.table 形式。
+                for table_ref in self._sample_tables:
+                    if "." not in table_ref:
+                        continue
+                    ref_db, table = table_ref.split(".", 1)
+                    if ref_db != str(source):
+                        continue
+                    source_rows = self._gateway.count_table_rows(source, table)
+                    shadow_rows = self._gateway.count_table_rows(shadow, table)
+                    if source_rows != shadow_rows:
+                        return VerificationResult(
+                            VerificationLevel.L2,
+                            False,
+                            reason=f"行数不一致：{table} {source_rows}/{shadow_rows}",
+                        )
+
+                return VerificationResult(VerificationLevel.L2, True)
+            finally:
+                # 无论成功失败，都清理临时文件和影子库。
+                self._gateway.drop_database(shadow)
+                try:
+                    Path(temp.name).unlink(missing_ok=True)
+                except OSError:
+                    pass
+        except Exception as exc:
+            # 恢复演练失败按校验失败处理。
+            return VerificationResult(VerificationLevel.L2, False, reason=str(exc))

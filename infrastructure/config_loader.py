@@ -141,6 +141,7 @@ class BackupConfig:
     extra_args: tuple[str, ...]
     retry_times: int
     lock_wait_timeout: int
+    min_free_bytes: int
 
     @property
     def is_all_databases(self) -> bool:
@@ -221,6 +222,7 @@ class AppConfig:
             "exclude_databases": list(self.backup.exclude_databases),
             "compress": self.backup.compress.value,
             "schema_only": self.backup.schema_only,
+            "min_free_bytes": self.backup.min_free_bytes,
             "retention": {
                 "enabled": self.retention.enabled,
                 "days": self.retention.days,
@@ -364,10 +366,16 @@ def _build_config(path: Path, raw: Mapping[str, Any], env: Mapping[str, str]) ->
     retry_times = _optional(backup_raw, path, "backup", "retry_times", int, 1)
     # mysqldump 锁等待超时秒数，默认 3600 秒。
     lock_wait_timeout = _optional(backup_raw, path, "backup", "lock_wait_timeout", int, 3600)
+    # 磁盘预检最低可用空间，默认 5 GiB（目标盘约 5GB，风险前置）。
+    min_free_bytes = _optional(
+        backup_raw, path, "backup", "min_free_bytes", int, 5 * 1024 * 1024 * 1024
+    )
     # 重试次数不允许为负数。
     _check_non_negative(path, "backup.retry_times", retry_times)
     # 锁等待时间不允许为负数。
     _check_non_negative(path, "backup.lock_wait_timeout", lock_wait_timeout)
+    # 磁盘最低空间不允许为负数。
+    _check_non_negative(path, "backup.min_free_bytes", min_free_bytes)
 
     # 取出 [retention] 区块。
     retention_raw = _section(raw, path, "retention")
@@ -463,6 +471,7 @@ def _build_config(path: Path, raw: Mapping[str, Any], env: Mapping[str, str]) ->
             extra_args=extra_args,
             retry_times=retry_times,
             lock_wait_timeout=lock_wait_timeout,
+            min_free_bytes=min_free_bytes,
         ),
         retention=RetentionConfig(
             enabled=retention_enabled,

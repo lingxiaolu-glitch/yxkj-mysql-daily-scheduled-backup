@@ -19,6 +19,7 @@ compress = "gzip"
 schema_only = true
 extra_args = []
 retry_times = 1
+min_free_bytes = 5368709120
 lock_wait_timeout = 3600
 
 [retention]

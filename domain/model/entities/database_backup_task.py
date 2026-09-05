@@ -31,7 +31,8 @@ class DatabaseBackupTask:
     retry_times: int = 1                             # 首次失败后的额外重试次数。
     attempts: int = 0                                # 已执行尝试次数。
     status: TaskStatus = TaskStatus.PENDING          # 当前任务状态。
-    artifact: BackupArtifact | None = None           # 成功后关联的产物。
+    artifact: BackupArtifact | None = None           # 成功后关联的完整数据产物。
+    schema_artifact: BackupArtifact | None = None    # 可选的仅表结构产物（schema_only=true）。
     retried: bool = False                            # 是否已经进入过重试。
     elapsed_seconds: float | None = None             # 最近一次尝试耗时。
     last_error: str = ""                             # 最近一次失败的脱敏错误。
@@ -105,9 +106,41 @@ class DatabaseBackupTask:
         if self.status is not TaskStatus.SUCCESS:
             raise DomainError("只有成功任务可以关联备份产物")
 
+        # 完整数据产物不能包含 schema 文件名。
+        if artifact.file_name.schema_only:
+            raise DomainError("完整备份不能关联 schema-only 文件名")
+
         # 产物库名必须和任务库名一致，防止清单错挂。
         if artifact.db_name != self.db_name:
             raise DomainError("备份产物与任务数据库不一致")
 
-        # 关联通过校验的产物。
+        # 关联通过校验的完整产物。
         self.artifact = artifact
+
+    def attach_schema_artifact(self, artifact: BackupArtifact) -> None:
+        """关联可选的仅表结构产物。"""
+
+        # 只有完整备份成功的任务才能附加额外产物。
+        if self.status is not TaskStatus.SUCCESS:
+            raise DomainError("只有成功任务可以关联 schema-only 产物")
+
+        # 只能写入明确的 schema-only 文件，避免与完整文件混淆。
+        if not artifact.file_name.schema_only:
+            raise DomainError("schema-only 任务必须关联 schema-only 文件名")
+
+        # 库名必须一致。
+        if artifact.db_name != self.db_name:
+            raise DomainError("schema-only 产物与任务数据库不一致")
+
+        # 不允许覆盖已关联的 schema 产物。
+        if self.schema_artifact is not None:
+            raise DomainError("任务已关联 schema-only 产物")
+
+        self.schema_artifact = artifact
+
+    @property
+    def all_artifacts(self) -> tuple[BackupArtifact, ...]:
+        """返回完整产物与可选的 schema-only 产物。"""
+
+        # 供校验、清理和 manifest 统一遍历。
+        return tuple(item for item in (self.artifact, self.schema_artifact) if item is not None)

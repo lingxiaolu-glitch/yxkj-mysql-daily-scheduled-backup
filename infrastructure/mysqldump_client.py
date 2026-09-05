@@ -6,6 +6,8 @@
   不产生未压缩的中间大文件；
 - 捕获 stderr 并脱敏、映射退出码为 DumpResult；
 - 进程无法启动等致命错误抛 DumpFailed（区别于转储失败）。
+- 配置 schema_only=true 表示“额外输出仅表结构文件”：dump() 先生成完整
+  数据+结构备份，再生成 schema 文件；只有两个产物都成功才算任务成功。
 """
 
 # 延迟类型注解，保持模块导入轻量。
@@ -85,29 +87,101 @@ class MysqldumpClient:
         }[backup.compress]
         # 解析 db:tables 组合，供 --tables 参数使用。
         self._tables_by_db = _parse_tables_by_db(backup.databases)
-        # 最近一次成功转储的存储结果（供上层组装 BackupArtifact）。
+        # 最近一次成功完整转储的存储结果与领域文件名。
         self._last_stored: StoredArtifact | None = None
+        self._last_file_name: FileName | None = None
+        # 最近一次成功 schema-only 转储的存储结果与领域文件名。
+        self._last_schema_stored: StoredArtifact | None = None
+        self._last_schema_file_name: FileName | None = None
 
     @property
     def last_stored(self) -> StoredArtifact | None:
-        """最近一次成功转储写入存储的结果（失败为 None）。"""
+        """最近一次成功完整转储写入存储的结果（失败为 None）。"""
 
         # 上层（步骤 10 装配）据此构造备份产物实体。
         return self._last_stored
 
+    @property
+    def last_schema_stored(self) -> StoredArtifact | None:
+        """最近一次成功 schema-only 转储的存储结果。"""
+
+        # 配置开启额外结构文件时由 dump() 内部自动生成。
+        return self._last_schema_stored
+
+    @property
+    def last_file_name(self) -> FileName | None:
+        """最近一次完整转储的领域文件名。"""
+        return self._last_file_name
+
+    @property
+    def last_schema_file_name(self) -> FileName | None:
+        """最近一次 schema-only 转储的领域文件名。"""
+        return self._last_schema_file_name
+
     def dump(self, task: DatabaseBackupTask) -> DumpResult:
-        """执行一次数据库转储并翻译为 DumpResult。"""
+        """执行完整数据库转储；schema_only=true 时额外生成仅结构文件。
+
+        返回结果表示完整产物与（可选的）schema 产物的联合结果：
+        任一必需产物失败都会返回失败，使领域服务按重试规则重新执行。
+        """
+        # 每次调用必须清空上一次结果，避免跨任务串档。
+        self._last_stored = None
+        self._last_file_name = None
+        self._last_schema_stored = None
+        self._last_schema_file_name = None
+
+        # 第一步：完整表结构 + 数据。
+        full = self._dump_once(task, schema_only=False)
+        if not full.success:
+            return full
+
+        # 未开启额外结构文件时，完整产物就是最终结果。
+        if not self._backup.schema_only:
+            return full
+
+        # 第二步：额外仅结构文件（--no-data）。
+        schema = self._dump_once(task, schema_only=True)
+        if not schema.success:
+            # 完整文件已经生成但 schema 文件失败，不能把不完整产物留作成功候选。
+            if self._last_stored is not None:
+                self._storage.delete(self._last_stored.relative_path)
+            self._last_stored = None
+            self._last_file_name = None
+            self._last_schema_file_name = None
+            return DumpResult(
+                success=False,
+                return_code=schema.return_code,
+                elapsed_seconds=full.elapsed_seconds + schema.elapsed_seconds,
+                error_digest=schema.error_digest,
+            )
+
+        # 两个产物都成功，返回联合结果；上层可读取 last_stored / last_schema_stored。
+        return DumpResult(
+            success=True,
+            return_code=0,
+            elapsed_seconds=full.elapsed_seconds + schema.elapsed_seconds,
+            error_digest="",
+        )
+
+    def dump_schema(self, task: DatabaseBackupTask) -> DumpResult:
+        """单独执行 schema-only 转储（测试或未来按需生成场景使用）。"""
+        self._last_schema_stored = None
+        self._last_schema_file_name = None
+        return self._dump_once(task, schema_only=True)
+
+    def _dump_once(self, task: DatabaseBackupTask, schema_only: bool) -> DumpResult:
+        """执行一次 mysqldump 并翻译为 DumpResult。"""
 
         # 由任务 + 当前时间 + 配置生成领域文件名（schema_only 决定前缀/参数）。
         file_name = FileName(
             db_name=task.db_name,
             backup_time=self._clock.now(),
             compression=self._compression,
-            schema_only=self._backup.schema_only,
+            schema_only=schema_only,
         )
 
         # 组装 mysqldump 命令参数。
-        argv = self._build_argv(task)
+        argv = self._build_argv(task, schema_only)
 
         # 记录开始时刻，用于计算耗时。
         started = time.monotonic()
@@ -124,7 +198,7 @@ class MysqldumpClient:
             # 二进制不存在/无权限属于致命错误，抛 DumpFailed。
             raise DumpFailed(f"无法启动 mysqldump：{exc}") from exc
 
-        # 记录存储写入结果与错误摘要。
+        # 记录本次存储写入结果与错误摘要。
         stored: StoredArtifact | None = None
         try:
             # 流式管道：stdout 分块 -> 压缩 -> 写入存储（低内存、无中间文件）。
@@ -157,8 +231,13 @@ class MysqldumpClient:
             self._storage.delete(stored.relative_path)
             stored = None
 
-        # 记录最近一次存储结果（仅成功时有效）。
-        self._last_stored = stored
+        # 记录本次存储结果（仅成功时有效）。
+        if schema_only:
+            self._last_schema_stored = stored
+            self._last_schema_file_name = file_name if stored is not None else None
+        else:
+            self._last_stored = stored
+            self._last_file_name = file_name if stored is not None else None
 
         # 翻译为领域结果。
         return DumpResult(
@@ -168,7 +247,7 @@ class MysqldumpClient:
             error_digest=error_digest,
         )
 
-    def _build_argv(self, task: DatabaseBackupTask) -> list[str]:
+    def _build_argv(self, task: DatabaseBackupTask, schema_only: bool = False) -> list[str]:
         """组装 mysqldump 命令参数（MySQL 8.0）。"""
 
         # 可执行文件路径（可用绝对路径或 PATH 中的名字）。
@@ -189,8 +268,8 @@ class MysqldumpClient:
         argv.append("--triggers")
         argv.append("--events")
 
-        # schema_only 时仅导出表结构（加 --no-data）。
-        if self._backup.schema_only:
+        # 仅结构文件额外加 --no-data；完整文件不得加该参数。
+        if schema_only:
             argv.append("--no-data")
 
         # 用户自定义额外参数（如 --hex-blob）。
