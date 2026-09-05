@@ -118,7 +118,8 @@ class MysqldumpClientTests(unittest.TestCase):
         self.assertIn(f"--host={self.config.mysql.host}", argv)
         self.assertIn(f"--port={self.config.mysql.port}", argv)
         self.assertIn(f"--user={self.config.mysql.user}", argv)
-        self.assertIn("--password=topsecret", argv)
+        self.assertNotIn("--password=topsecret", argv)
+        self.assertEqual("topsecret", popen.call_args.kwargs["env"]["MYSQL_PWD"])
 
         # 输出确实写入了存储，且内容一致。
         self.assertIsNotNone(self.client.last_stored)

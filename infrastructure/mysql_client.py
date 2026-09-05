@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 # subprocess 执行外部 mysql 命令。
+import os
 import re
 import subprocess
 
@@ -47,10 +48,15 @@ class MysqlCliClient:
             f"--host={self._mysql.host}",
             f"--port={self._mysql.port}",
             f"--user={self._mysql.user}",
-            f"--password={self._mysql.password}",
             "--batch",              # 制表符分隔，便于解析。
             "--skip-column-names",  # 去掉列头，只留数据行。
         ]
+
+    def _mysql_env(self) -> dict[str, str]:
+        """返回带 MYSQL_PWD 的环境变量，避免密码出现在命令行参数。"""
+        env = os.environ.copy()
+        env["MYSQL_PWD"] = self._mysql.password
+        return env
 
     def _run(self, sql: str) -> str:
         """执行一条 SQL 并返回标准输出文本。"""
@@ -63,6 +69,7 @@ class MysqlCliClient:
                 text=True,
                 encoding="utf-8",
                 errors="replace",
+                env=self._mysql_env(),
             )
         except OSError as exc:
             # 二进制不存在/无权限属于致命错误。
@@ -165,14 +172,14 @@ class MysqlCliClient:
             except OSError as exc:
                 raise MySqlCliError(f"读取 SQL 文件失败：{exc}") from exc
             try:
-                proc = subprocess.run(argv, input=input_bytes, capture_output=True)
+                proc = subprocess.run(argv, input=input_bytes, capture_output=True, env=self._mysql_env())
             except OSError as exc:
                 raise MySqlCliError(f"无法启动 mysql CLI：{exc}") from exc
         else:
             # 以文件作为 stdin 导入，避免把大文件读进内存。
             try:
                 with open(sql_file, "rb") as handle:
-                    proc = subprocess.run(argv, stdin=handle, capture_output=True)
+                    proc = subprocess.run(argv, stdin=handle, capture_output=True, env=self._mysql_env())
             except OSError as exc:
                 raise MySqlCliError(f"无法启动 mysql CLI：{exc}") from exc
 

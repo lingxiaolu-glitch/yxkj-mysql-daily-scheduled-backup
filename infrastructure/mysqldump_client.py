@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 # subprocess 执行外部 mysqldump；time 统计转储耗时。
+import os
 import subprocess
 import time
 # Iterable/Iterator 描述字节流；Mapping 描述 db:tables 组合。
@@ -193,6 +194,7 @@ class MysqldumpClient:
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                env=self._mysql_env(),
             )
         except OSError as exc:
             # 二进制不存在/无权限属于致命错误，抛 DumpFailed。
@@ -247,6 +249,12 @@ class MysqldumpClient:
             error_digest=error_digest,
         )
 
+    def _mysql_env(self) -> dict[str, str]:
+        """返回带 MYSQL_PWD 的子进程环境变量，避免密码暴露在进程参数中。"""
+        env = os.environ.copy()
+        env["MYSQL_PWD"] = self._mysql.password
+        return env
+
     def _build_argv(self, task: DatabaseBackupTask, schema_only: bool = False) -> list[str]:
         """组装 mysqldump 命令参数（MySQL 8.0）。"""
 
@@ -257,8 +265,7 @@ class MysqldumpClient:
         argv.append(f"--host={self._mysql.host}")
         argv.append(f"--port={self._mysql.port}")
         argv.append(f"--user={self._mysql.user}")
-        # 密码走 --password=；日志层用 redact_command 遮蔽，不落盘。
-        argv.append(f"--password={self._mysql.password}")
+        # 密码不进入命令行参数，改由 MYSQL_PWD 环境变量传给子进程（进程列表不可见）。
 
         # MySQL 8.0 一致性/完整性参数。
         argv.append("--set-gtid-purged=OFF")

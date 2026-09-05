@@ -73,6 +73,9 @@ mysql-daily-scheduled-backup/
 
 ## 部署与运维
 
+生产服务器可先运行 `bash scripts/verify_deployment.sh configs/instance-a.toml` 做一键预检。
+
+
 详细步骤见 [docx/DEPLOYMENT.md](docx/DEPLOYMENT.md)，本地真实演练见 [docx/DRILL_REPORT_LATEST.md](docx/DRILL_REPORT_LATEST.md)，生产上线记录模板见 [docx/DRILL_REPORT_TEMPLATE.md](docx/DRILL_REPORT_TEMPLATE.md)。
 
 ## 使用 CLI
@@ -101,6 +104,10 @@ print(config.safe_summary())
 ```
 
 `safe_summary()` 不包含数据库密码明文。
+
+## 自动测试
+
+仓库已配置 `.github/workflows/tests.yml`，在 GitHub 上提交后会自动运行 Python 3.11/3.12/3.13 的全量单测和集成测试。
 
 ## 提交与凭据安全
 

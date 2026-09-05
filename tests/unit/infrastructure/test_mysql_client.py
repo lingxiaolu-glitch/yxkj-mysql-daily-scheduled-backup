@@ -53,7 +53,8 @@ class MysqlCliClientTests(unittest.TestCase):
         args = run.call_args.args[0]
         self.assertIn("-e", args)
         self.assertIn("SHOW DATABASES", args)
-        self.assertIn("--password=topsecret", args)
+        self.assertNotIn("--password=topsecret", args)
+        self.assertEqual("topsecret", run.call_args.kwargs["env"]["MYSQL_PWD"])
 
     def test_count_tables_parses_integer(self) -> None:
         """统计表数量：解析第一行为整数。"""
