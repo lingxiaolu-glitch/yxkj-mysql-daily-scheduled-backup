@@ -23,7 +23,7 @@
 | 04 | 领域模型与事件 | `domain/model/*`、`domain/events.py`、`domain/repositories.py` | 02 | ✅ |
 | 05 | 领域服务 | `domain/services/backup_execution.py`、`retention.py`、`verification.py` | 04 | ✅ |
 | 06 | 时钟/锁/存储/压缩适配 | `system_clock.py`、`run_lock.py`、`file_storage.py`、`compressor.py` | 03, 04 | ✅ |
-| 07 | MySQL 防腐层与网关 | `infrastructure/mysqldump_client.py`、`mysql_client.py` | 04, 06 | ⬜ |
+| 07 | MySQL 防腐层与网关 | `infrastructure/mysqldump_client.py`、`mysql_client.py` | 04, 06 | ✅ |
 | 08 | manifest 仓库与 L0/L1 校验实现 | `infrastructure/manifest_repository.py`、`verifiers.py` | 05, 06, 07 | ⬜ |
 | 09 | 通知适配 | `infrastructure/notifiers.py`（LogNotifier，预留 SMTP/Webhook） | 04, 06 | ⬜ |
 | 10 | 触发层命令处理器 | `trigger/run_backup.py`、`restore_backup.py`、`cleanup.py` | 05–09 | ⬜ |
@@ -115,6 +115,9 @@
 ### 步骤 07：MySQL 防腐层与网关
 
 - **目标**：封装 mysqldump / mysql CLI（外部工具唯一接触点），翻译为领域对象。
+
+> **当前进度**：`infrastructure/mysqldump_client.py`、`mysql_client.py` 已实现并通过 mock 子进程单测；当前 `python -m unittest discover -s tests -v` 共 99 个用例，98 通过、1 个 Windows 权限用例跳过。
+
 - **新增**：`infrastructure/mysqldump_client.py`、`infrastructure/mysql_client.py`，`tests/unit/infrastructure/test_mysql_*.py`（mock 子进程）。
 - **建议接口**：
   - `MysqldumpClient`（ACL）：按版本生成参数（MySQL 8.0：`--set-gtid-purged=OFF`；`--single-transaction --quick --routines --triggers --events --databases db`；schema_only 时加 `--no-data`），流式管道 `mysqldump ... | gzip > xxx.sql.gz`，捕获 stderr（脱敏）、退出码，翻译 `DumpResult` / 抛 `DumpFailed`；

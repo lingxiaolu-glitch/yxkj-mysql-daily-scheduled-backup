@@ -62,7 +62,8 @@ mysql-daily-scheduled-backup/
 > - 步骤 04 领域核心已实现：文件命名值对象、单库任务重试状态机、备份产物恢复门禁、运行聚合成功/部分失败/全部失败退出码、领域事件和端口契约。
 > - 步骤 05 领域服务已实现：备份执行编排（DumpExecutor 端口 + 失败重试 + 部分失败隔离）、保留策略纯函数（日/周/月 → CleanupPlan）、校验编排（校验器注入 → Availability 映射）。
 > - 步骤 06 基础设施适配已实现：SystemClock（Clock 端口）、RunLock（锁文件并发保护）、LocalFileStorage（写流/列目录/防越界删除、0600/0700）、Gzip/Noop 压缩（zstd 预留），配套 19 个基础设施单测。
-> - 当前 `python -m unittest discover -s tests -v` 共 87 个用例全部通过（Windows 跳过 1 个权限用例）。
+- 步骤 07 MySQL 防腐层与网关已实现：MysqldumpClient 按 MySQL 8.0 参数流式转储并写存储、脱敏错误、映射 DumpResult；MysqlCliClient 提供枚举业务库、表数统计、影子库操作和恢复导入，配套 12 个单测。
+> - 当前 `python -m unittest discover -s tests -v` 共 99 个用例，98 个通过、1 个 Windows 权限用例跳过。
 > - 命令行入口（步骤 11）尚未实现，因此 `scripts/run_backup.*` 目前只是部署流程的预留包装脚本。
 
 ## 使用配置加载器
