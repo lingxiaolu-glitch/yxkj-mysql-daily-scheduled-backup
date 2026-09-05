@@ -64,7 +64,8 @@ mysql-daily-scheduled-backup/
 > - 步骤 06 基础设施适配已实现：SystemClock（Clock 端口）、RunLock（锁文件并发保护）、LocalFileStorage（写流/列目录/防越界删除、0600/0700）、Gzip/Noop 压缩（zstd 预留），配套 19 个基础设施单测。
 > - 步骤 07 MySQL 防腐层与网关已实现：MysqldumpClient 按 MySQL 8.0 参数流式转储并写存储、脱敏错误、映射 DumpResult；MysqlCliClient 提供枚举业务库、表数统计、影子库操作和恢复导入，配套 12 个单测。
 > - 步骤 08 manifest 仓库与 L0/L1 校验已实现：按日期保存完整运行/产物/校验状态，支持多运行与损坏文件告警；L0 校验 gzip 完整性和 Dump completed 标记，L1 校验 CREATE TABLE 数量与源库或配置期望值一致，配套 16 个单测。
-> - 当前 `python -m unittest discover -s tests -v` 共 115 个用例，114 个通过、1 个 Windows 权限用例跳过。
+> - 步骤 09 通知适配已实现：LogNotifier 为 v1 默认日志通道，SmtpNotifier/WebhookNotifier 为可注入测试的预留通道，通知失败只记日志，配套 9 个单测。
+> - 当前 `python -m unittest discover -s tests -v` 共 124 个用例，123 个通过、1 个 Windows 权限用例跳过。
 > - 命令行入口（步骤 11）尚未实现，因此 `scripts/run_backup.*` 目前只是部署流程的预留包装脚本。
 
 ## 使用配置加载器

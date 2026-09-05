@@ -25,7 +25,7 @@
 | 06 | 时钟/锁/存储/压缩适配 | `system_clock.py`、`run_lock.py`、`file_storage.py`、`compressor.py` | 03, 04 | ✅ |
 | 07 | MySQL 防腐层与网关 | `infrastructure/mysqldump_client.py`、`mysql_client.py` | 04, 06 | ✅ |
 | 08 | manifest 仓库与 L0/L1 校验实现 | `infrastructure/manifest_repository.py`、`verifiers.py` | 05, 06, 07 | ✅ |
-| 09 | 通知适配 | `infrastructure/notifiers.py`（LogNotifier，预留 SMTP/Webhook） | 04, 06 | ⬜ |
+| 09 | 通知适配 | `infrastructure/notifiers.py`（LogNotifier，预留 SMTP/Webhook） | 04, 06 | ✅ |
 | 10 | 触发层命令处理器 | `trigger/run_backup.py`、`restore_backup.py`、`cleanup.py` | 05–09 | ⬜ |
 | 11 | 应用层入口 | `application/cli.py` + `application/main.py`（装配、子命令、退出码） | 03, 10 | ⬜ |
 | 12 | 集成测试与部署脚本 | `tests/integration/*`、`scripts/install_*`、`restore.sh`、`README.md` | 11 | ⬜ |
@@ -139,6 +139,8 @@
 - **不回归约束**：不修改 domain 服务；如领域服务接口不足，走兼容性演进（见总览约束 2）。
 
 ### 步骤 09：通知适配
+
+> **当前进度**：`LogNotifier`、`SmtpNotifier`、`WebhookNotifier`、`NoopNotifier` 与 `create_notifier` 已实现；SMTP/Webhook 均支持注入传输并确认失败只记日志不改变退出码；当前共 124 个用例，123 个通过、1 个 Windows 权限用例跳过。
 
 - **目标**：告警通道（v1 默认日志兜底；QQ 邮箱 SMTP 与 Webhook 预留，v2 启用）。
 - **新增**：`infrastructure/notifiers.py`，`tests/unit/infrastructure/test_notifiers.py`。
