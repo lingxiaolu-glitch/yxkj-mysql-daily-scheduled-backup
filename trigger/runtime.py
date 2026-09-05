@@ -88,7 +88,7 @@ def build_runtime(
         else:
             compressor = ZstdCompressor()
 
-    gateway = gateway or MysqlCliClient(config.mysql)
+    gateway = gateway or MysqlCliClient(config.mysql, config.backup.mysql_path)
     dump_executor = dump_executor or MysqldumpClient(
         config.mysql,
         config.backup,

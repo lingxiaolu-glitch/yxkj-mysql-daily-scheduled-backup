@@ -16,6 +16,7 @@ dest_dir = "/data/backup/mysql/instance-a"   # 每实例独立目录，避免 ma
 databases = ["all"]                         # 自动枚举该实例全部业务库
 exclude_databases = ["information_schema", "performance_schema", "sys", "mysql"]
 mysqldump_path = "mysqldump"
+mysql_path = "mysql"
 compress = "gzip"                           # gzip | zstd | none
 schema_only = true                          # 额外输出仅表结构文件
 extra_args = []                             # 如 ["--hex-blob"]

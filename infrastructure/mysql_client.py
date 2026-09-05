@@ -143,12 +143,14 @@ class MysqlCliClient:
         input_bytes = None
         if rewrite_to_database is not None:
             try:
-                with open(sql_file, mode, encoding="utf-8", errors="replace") as handle:
+                with open(sql_file, "r", encoding="utf-8", errors="replace") as handle:
                     sql_text = handle.read()
                 # 改写 CREATE DATABASE 与 USE，保证恢复到指定影子库。
                 target = str(rewrite_to_database)
                 sql_text = re.sub(
-                    r"(?im)^\s*CREATE\s+DATABASE\s+(?:IF\s+NOT\s+EXISTS\s+)?`?[^`\s;]+`?",
+                    r"(?im)^\s*CREATE\s+DATABASE\s+"
+                    r"(?:/\*!\d+\s+IF\s+NOT\s+EXISTS\s*\*/\s+)?"
+                    r"`[^`]+`",
                     f"CREATE DATABASE IF NOT EXISTS `{target}`",
                     sql_text,
                     count=1,

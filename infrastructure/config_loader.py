@@ -136,6 +136,7 @@ class BackupConfig:
     databases: tuple[str, ...]           # ("all",) 或 ("db1", "db1:t1,t2", ...)
     exclude_databases: tuple[str, ...]
     mysqldump_path: str
+    mysql_path: str
     compress: CompressionType
     schema_only: bool
     extra_args: tuple[str, ...]
@@ -222,6 +223,7 @@ class AppConfig:
             "exclude_databases": list(self.backup.exclude_databases),
             "compress": self.backup.compress.value,
             "schema_only": self.backup.schema_only,
+            "mysql_path": self.backup.mysql_path,
             "min_free_bytes": self.backup.min_free_bytes,
             "retention": {
                 "enabled": self.retention.enabled,
@@ -356,6 +358,12 @@ def _build_config(path: Path, raw: Mapping[str, Any], env: Mapping[str, str]) ->
         path,
         "backup.mysqldump_path",
     )
+    # mysql CLI 可执行文件名或路径，默认从 PATH 查找。
+    mysql_path = _nonempty(
+        _optional(backup_raw, path, "backup", "mysql_path", str, "mysql"),
+        path,
+        "backup.mysql_path",
+    )
     # 压缩格式必须命中枚举白名单，字符串转小写后匹配。
     compress = _enum(backup_raw, path, "backup", "compress", CompressionType, str.lower, default=CompressionType.GZIP)
     # 是否只导出表结构；默认开启。
@@ -466,6 +474,7 @@ def _build_config(path: Path, raw: Mapping[str, Any], env: Mapping[str, str]) ->
             databases=databases,
             exclude_databases=exclude_databases,
             mysqldump_path=mysqldump_path,
+            mysql_path=mysql_path,
             compress=compress,
             schema_only=schema_only,
             extra_args=extra_args,

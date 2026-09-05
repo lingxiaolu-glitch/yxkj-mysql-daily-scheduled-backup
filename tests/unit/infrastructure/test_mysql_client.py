@@ -123,6 +123,29 @@ class MysqlCliClientTests(unittest.TestCase):
             self.assertEqual("shop", argv[-1])
             self.assertIn("stdin", run.call_args.kwargs)
 
+    def test_restore_rewrites_dump_to_target_database(self) -> None:
+        """rewrite_to_database：改写 CREATE DATABASE/USE 后通过 stdin 导入。"""
+        with tempfile.TemporaryDirectory() as d:
+            sql_file = Path(d) / "backup.sql"
+            sql_file.write_text(
+                "CREATE DATABASE /*!32312 IF NOT EXISTS*/ `shop` "
+                "/*!40100 DEFAULT CHARACTER SET latin1 */;\n"
+                "USE `shop`;\n"
+                "CREATE TABLE t (id INT);\n",
+                encoding="utf-8",
+            )
+            with mock.patch("subprocess.run", return_value=self._ok()) as run:
+                self.client.restore(
+                    str(sql_file),
+                    DbName("shop_restore"),
+                    one_database=True,
+                    rewrite_to_database=DbName("shop_restore"),
+                )
+            payload = run.call_args.kwargs["input"].decode("utf-8")
+            self.assertIn("CREATE DATABASE IF NOT EXISTS `shop_restore`", payload)
+            self.assertIn("USE `shop_restore`", payload)
+            self.assertNotIn("USE `shop`", payload)
+
     def test_restore_plain_target_database(self) -> None:
         """恢复（不带 --one-database）：目标库直接作为位置参数。"""
 

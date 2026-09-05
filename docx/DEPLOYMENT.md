@@ -7,7 +7,7 @@
 - Python 3.13+（项目仅使用标准库）。
 - 服务端 MySQL 8.0，建议确认 `mysqldump --version`。
 - 备份账号满足 PRD 9.4：SELECT、SHOW VIEW、TRIGGER、EVENT、PROCESS、REPLICATION CLIENT、LOCK TABLES/RELOAD 等。
-- 目标目录所在磁盘空间充足，`backup.min_free_bytes` 建议不低于 5GiB。
+- 目标目录所在磁盘空间充足，`backup.min_free_bytes` 建议不低于 5GiB；`backup.mysqldump_path`/`backup.mysql_path` 如不在 PATH，请配置绝对路径。
 - 实例 A/B 分别使用 `configs/instance-a.toml`、`configs/instance-b.toml`，端口/账号/密码环境变量不同。
 
 ## 2. 配置

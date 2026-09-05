@@ -43,6 +43,7 @@ class RestoreBackupCommandHandler:
         file: str | None = None,
         mode: str = "full",
         to_host: str | None = None,
+        to_db: str | DbName | None = None,
     ) -> int:
         """执行恢复并返回退出码。"""
         try:
@@ -71,8 +72,9 @@ class RestoreBackupCommandHandler:
                 logger.error("v1 暂不支持恢复到其他主机：%s", to_host)
                 return int(ExitCode.FAILED)
 
-            target = DbName(str(db))
-            artifact = self._find_artifact(runtime, target, file, mode)
+            source = DbName(str(db))
+            target = DbName(str(to_db if to_db is not None else db))
+            artifact = self._find_artifact(runtime, source, file, mode)
             return self._restore_artifact(runtime, artifact, target, mode, logger)
         except Exception as exc:
             logging.getLogger(LOGGER_NAME).error("恢复失败：%s", exc, exc_info=True)
@@ -144,6 +146,8 @@ class RestoreBackupCommandHandler:
             return int(ExitCode.FAILED)
 
         try:
+            # 先创建目标库，避免 mysql --one-database 在库不存在时提前报错。
+            runtime.gateway.create_shadow_database(artifact.db_name, target)
             # one_database 确保多库 dump 只恢复目标库。
             runtime.gateway.restore(
                 sql_file,

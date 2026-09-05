@@ -29,7 +29,7 @@
 | 10 | 触发层命令处理器 | `trigger/run_backup.py`、`restore_backup.py`、`cleanup.py` | 05–09 | ✅ |
 | 11 | 应用层入口 | `application/cli.py` + `application/main.py`（装配、子命令、退出码） | 03, 10 | ✅ |
 | 12 | 集成测试与部署脚本 | `tests/integration/*`、`scripts/install_*`、`restore.sh`、`README.md` | 11 | ✅ |
-| 13 | 真实环境部署与演练 | 服务器安装、定时任务、首日备份、恢复演练报告 | 12 | ⬜ |
+| 13 | 真实环境部署与演练 | 服务器安装、定时任务、首日备份、恢复演练报告 | 12 | 🟡（生产部署待服务器访问） |
 
 ---
 
@@ -53,7 +53,7 @@
 - **新增**：`infrastructure/config_loader.py`，`tests/unit/test_config_loader.py`。
 - **建议接口**：
   - `load_config(path: str | Path, env: Mapping[str, str] | None = None) -> AppConfig`
-  - `AppConfig` 各区块：`mysql`（host/port/user/password_env）、`backup`（dest_dir/databases/exclude_databases/mysqldump_path/compress/schema_only/extra_args/retry_times/lock_wait_timeout/min_free_bytes）、`retention`（days=1/weekly=0/monthly=0/enabled）、`schedule`（time=“02:00”/timezone）、`verify`（level/shadow_db_prefix/sample_tables）、`notify`（enabled/on_success/on_failure/type）、`log`（level/dir/max_bytes/backup_count）。
+  - `AppConfig` 各区块：`mysql`（host/port/user/password_env）、`backup`（dest_dir/databases/exclude_databases/mysqldump_path/mysql_path/compress/schema_only/extra_args/retry_times/lock_wait_timeout/min_free_bytes）、`retention`（days=1/weekly=0/monthly=0/enabled）、`schedule`（time=“02:00”/timezone）、`verify`（level/shadow_db_prefix/sample_tables）、`notify`（enabled/on_success/on_failure/type）、`log`（level/dir/max_bytes/backup_count）。
   - 密码从 `password_env` 指定环境变量读取，**禁止**打印/写入日志；缺省必填项、非法枚举值时抛 `ConfigError`（含文件/键名）。
 - **验收**：单测覆盖：合法配置、缺必填项、非法枚举（compress/level/notify.type）、密码来自环境变量、`databases=["all"]` 与列表两种形态、多实例 = 每实例一份配置文件（loader 本身单配置）。
 - **不回归约束**：仅新增，不触碰其他模块。
@@ -189,6 +189,8 @@
 - **不回归约束**：测试与脚本只调用已验收的公开入口。
 
 ### 步骤 13：真实环境部署与演练（服务器侧）
+
+> **当前进度（部分完成）**：已使用本机真实 MySQL 5.7.39 隔离实例完成 L1 完整备份、全库恢复、仅结构恢复和 L2 影子库验证，结果见 `docx/DRILL_REPORT_LATEST.md`；生产 Linux 部署仍因无 SSH 通道、生产端口不可达、实例 B 配置占位而待外部条件，不能标记完成。
 
 - **目标**：在 Linux 生产环境完成部署与验证（本地 Windows 仅开发/测试）。
 - **动作**：确认 mysqldump 版本与 8.0 参数 → 按 PRD 9.4 创建最小权限备份账号 → 部署产物与配置文件 → 安装 cron/systemd 定时任务（02:00，2 实例各一份配置）→ 首日手工执行与自动执行 → 目标盘空间实测（单日压缩备份体积，验证 5GB 是否够用）→ 全库/单库/仅结构恢复演练 → 输出演练报告。

@@ -33,6 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="恢复模式：完整库/单库/仅表结构",
     )
     restore.add_argument("--to-host", default=None, help="v2 预留：恢复目标主机")
+    restore.add_argument("--to-db", default=None, help="恢复目标数据库名，缺省与 --db 相同")
 
     # cleanup：只执行保留清理。
     cleanup = subparsers.add_parser("cleanup", help="执行保留策略清理")
@@ -88,6 +89,7 @@ def main(
                     file=args.file,
                     mode=args.mode,
                     to_host=args.to_host,
+                    to_db=args.to_db,
                 )
             )
         return int(handler.execute())

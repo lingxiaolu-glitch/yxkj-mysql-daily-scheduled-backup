@@ -52,6 +52,7 @@ class CliTests(unittest.TestCase):
                 "--file", "20260905/shop.sql",
                 "--mode", "schema",
                 "--to-host", "127.0.0.1",
+                "--to-db", "shop_restore",
             ],
             handler_factory=factory,
         )
@@ -60,6 +61,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual("20260905/shop.sql", handler.kwargs["file"])
         self.assertEqual("schema", handler.kwargs["mode"])
         self.assertEqual("127.0.0.1", handler.kwargs["to_host"])
+        self.assertEqual("shop_restore", handler.kwargs["to_db"])
 
     def test_cleanup_passes_config(self) -> None:
         """cleanup 子命令执行处理器。"""
