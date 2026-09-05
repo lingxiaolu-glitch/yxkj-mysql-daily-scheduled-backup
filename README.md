@@ -68,7 +68,7 @@ mysql-daily-scheduled-backup/
 > - 步骤 10 触发层已实现：RunBackupCommandHandler/ RestoreBackupCommandHandler/ CleanupCommandHandler，以及 Runtime 注入装配；完整备份现在额外生成 `{db}_schema_*.sql.gz`，支持并发锁、磁盘预检、L0/L1/L2 校验、manifest、保留清理和通知，配套 14 个触发层/校验单测。
 > - 步骤 11 应用层入口已实现：`application/main.py` 支持 `backup`、`restore`、`cleanup` 三个子命令，返回码 0/1/2，未知参数返回 2，配套 6 个 CLI 单测。
 > - 步骤 12 集成测试与部署脚本已实现：`tests/integration/test_end_to_end.py` 覆盖完整备份、gzip+schema、manifest、保留清理、恢复导入和 L2 影子库演练；提供 cron/systemd/Windows 计划任务安装脚本，配套 3 个端到端测试。
-> - 步骤 13 已完成本地真实 MySQL 演练（完整备份/全库恢复/仅结构恢复/L2 影子库），报告见 `docx/DRILL_REPORT_LATEST.md`；生产 Linux 部署因 SSH/端口/实例 B 信息缺失暂未执行，属于外部环境阻塞项。
+> - 步骤 13 已完成本地 MySQL 演练，并已对服务器 MySQL 8.0.32（117.72.97.228:13306）执行真实完整备份与 schema_only 验证；生产 Linux cron/systemd 安装仍需 SSH 权限。报告见 `docx/DRILL_REPORT_LATEST.md`。
 > - 当前 `python -m unittest discover -s tests -v` 共 148 个用例，147 个通过、1 个 Windows 权限用例跳过。
 
 ## 部署与运维
