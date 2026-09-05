@@ -28,7 +28,7 @@
 | 09 | 通知适配 | `infrastructure/notifiers.py`（LogNotifier，预留 SMTP/Webhook） | 04, 06 | ✅ |
 | 10 | 触发层命令处理器 | `trigger/run_backup.py`、`restore_backup.py`、`cleanup.py` | 05–09 | ✅ |
 | 11 | 应用层入口 | `application/cli.py` + `application/main.py`（装配、子命令、退出码） | 03, 10 | ✅ |
-| 12 | 集成测试与部署脚本 | `tests/integration/*`、`scripts/install_*`、`restore.sh`、`README.md` | 11 | ⬜ |
+| 12 | 集成测试与部署脚本 | `tests/integration/*`、`scripts/install_*`、`restore.sh`、`README.md` | 11 | ✅ |
 | 13 | 真实环境部署与演练 | 服务器安装、定时任务、首日备份、恢复演练报告 | 12 | ⬜ |
 
 ---
@@ -180,6 +180,8 @@
 - **不回归约束**：入口薄，不承载业务规则；不改 10 的处理器接口。
 
 ### 步骤 12：集成测试与部署脚本
+
+> **当前进度**：`tests/integration/test_end_to_end.py` 已覆盖 gzip+schema+manifest 完整备份、备份后保留清理、恢复导入和 L2 影子库演练；`scripts/install_cron.sh`、`install_systemd.sh`、`install_task.ps1`、`restore.sh` 与 `docx/DEPLOYMENT.md`、`DRILL_REPORT_TEMPLATE.md` 已交付；当前共 147 个用例，146 个通过、1 个 Windows 权限用例跳过。
 
 - **目标**：mock 命令的端到端测试 + 可上架部署脚本 + README。
 - **新增**：`tests/integration/test_end_to_end.py`（用 fake mysqldump/mysql 可执行文件或 mock）、`scripts/install_cron.sh`、`scripts/install_systemd.sh`、`scripts/install_task.ps1`（cron/systemd/timer 02:00，指向 `application/main.py` backup）、`scripts/restore.sh`、`README.md`（快速开始/部署/恢复/FAQ）。

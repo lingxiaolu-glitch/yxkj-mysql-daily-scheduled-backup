@@ -61,6 +61,10 @@ class FileIntegrityVerifier:
 
         return VerificationResult(VerificationLevel.L0, True)
 
+    def __call__(self, artifact: BackupArtifact) -> VerificationResult:
+        """让实例可直接作为校验器 callable 使用。"""
+        return self.verify(artifact)
+
     def _decode_sql_checked(self, artifact: BackupArtifact) -> bytes:
         """读取并解压备份文件；同时完成存在性、非空与 gzip 合法性检查。"""
         # 必须先检查存在性，避免 read_bytes 抛出底层路径错误。
@@ -112,6 +116,10 @@ class StructureVerifier:
         # 复制期望表数映射，避免调用方后续修改影响校验。
         self._expected_counts = dict(expected_counts or {})
 
+    def __call__(self, artifact: BackupArtifact) -> VerificationResult:
+        """让实例可直接作为校验器 callable 使用。"""
+        return self.verify(artifact)
+
     def verify(self, artifact: BackupArtifact) -> VerificationResult:
         """执行 L1 校验并返回结果。"""
         try:
@@ -156,6 +164,10 @@ class RestoreVerifier:
         self._sample_tables = tuple(sample_tables)
         self._expected_counts = dict(expected_counts or {})
         self._temp_dir = temp_dir
+
+    def __call__(self, artifact: BackupArtifact) -> VerificationResult:
+        """让实例可直接作为校验器 callable 使用。"""
+        return self.verify(artifact)
 
     def verify(self, artifact: BackupArtifact) -> VerificationResult:
         """执行影子库恢复比对，失败时清理影子库。"""

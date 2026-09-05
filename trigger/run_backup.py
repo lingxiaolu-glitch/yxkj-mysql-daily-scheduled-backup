@@ -343,6 +343,9 @@ class RunBackupCommandHandler:
         for task in run.tasks:
             for artifact in task.all_artifacts:
                 for level in levels:
+                    # L2 恢复演练只对完整数据产物执行，schema-only 文件不参与。
+                    if artifact.file_name.schema_only and level is VerificationLevel.L2:
+                        continue
                     try:
                         result: VerificationResult = service.verify(artifact, level)
                     except Exception as exc:
