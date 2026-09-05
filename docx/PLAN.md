@@ -27,7 +27,7 @@
 | 08 | manifest 仓库与 L0/L1 校验实现 | `infrastructure/manifest_repository.py`、`verifiers.py` | 05, 06, 07 | ✅ |
 | 09 | 通知适配 | `infrastructure/notifiers.py`（LogNotifier，预留 SMTP/Webhook） | 04, 06 | ✅ |
 | 10 | 触发层命令处理器 | `trigger/run_backup.py`、`restore_backup.py`、`cleanup.py` | 05–09 | ✅ |
-| 11 | 应用层入口 | `application/cli.py` + `application/main.py`（装配、子命令、退出码） | 03, 10 | ⬜ |
+| 11 | 应用层入口 | `application/cli.py` + `application/main.py`（装配、子命令、退出码） | 03, 10 | ✅ |
 | 12 | 集成测试与部署脚本 | `tests/integration/*`、`scripts/install_*`、`restore.sh`、`README.md` | 11 | ⬜ |
 | 13 | 真实环境部署与演练 | 服务器安装、定时任务、首日备份、恢复演练报告 | 12 | ⬜ |
 
@@ -165,6 +165,8 @@
 - **不回归约束**：处理器是"装配者"，不改领域与基础设施已验收实现。
 
 ### 步骤 11：应用层入口（main.py / cli.py）
+
+> **当前进度**：`application/cli.py` 与 `application/main.py` 已实现 backup/restore/cleanup 子命令、参数校验和退出码透传；直接执行 `python application/main.py --help` 返回 0；当前共 144 个用例，143 个通过、1 个 Windows 权限用例跳过。
 
 - **目标**：命令行入口与依赖装配（PRD 7.3 应用层落位）。
 - **新增**：`application/cli.py`、`application/main.py`，`tests/unit/application/test_cli.py`。

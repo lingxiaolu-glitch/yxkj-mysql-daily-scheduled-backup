@@ -66,12 +66,25 @@ mysql-daily-scheduled-backup/
 > - 步骤 08 manifest 仓库与 L0/L1 校验已实现：按日期保存完整运行/产物/校验状态，支持多运行与损坏文件告警；L0 校验 gzip 完整性和 Dump completed 标记，L1 校验 CREATE TABLE 数量与源库或配置期望值一致，配套 16 个单测。
 > - 步骤 09 通知适配已实现：LogNotifier 为 v1 默认日志通道，SmtpNotifier/WebhookNotifier 为可注入测试的预留通道，通知失败只记日志，配套 9 个单测。
 > - 步骤 10 触发层已实现：RunBackupCommandHandler/ RestoreBackupCommandHandler/ CleanupCommandHandler，以及 Runtime 注入装配；完整备份现在额外生成 `{db}_schema_*.sql.gz`，支持并发锁、磁盘预检、L0/L1/L2 校验、manifest、保留清理和通知，配套 14 个触发层/校验单测。
-> - 当前 `python -m unittest discover -s tests -v` 共 138 个用例，137 个通过、1 个 Windows 权限用例跳过。
-> - 命令行入口（步骤 11）尚未实现，因此 `scripts/run_backup.*` 目前只是部署流程的预留包装脚本。
+> - 步骤 11 应用层入口已实现：`application/main.py` 支持 `backup`、`restore`、`cleanup` 三个子命令，返回码 0/1/2，未知参数返回 2，配套 6 个 CLI 单测。
+> - 当前 `python -m unittest discover -s tests -v` 共 144 个用例，143 个通过、1 个 Windows 权限用例跳过。
 
-## 使用配置加载器
+## 使用 CLI
 
-CLI 将在后续步骤提供。当前可先在代码或临时脚本中调用 loader：
+命令行入口已经可用：
+
+```bash
+# 执行备份
+python application/main.py backup --config configs/instance-a.toml
+
+# 恢复最近可用完整备份
+python application/main.py restore --config configs/instance-a.toml --db shop --mode full
+
+# 仅执行保留清理
+python application/main.py cleanup --config configs/instance-a.toml
+```
+
+运行前请先把实例对应的环境变量写入 `configs/.env`（该文件已被 git 忽略），或在执行环境中直接设置变量。也可以在代码中直接加载配置查看脱敏摘要：
 
 ```python
 from pathlib import Path
@@ -81,7 +94,7 @@ config = load_config(Path("configs/instance-a.toml"))
 print(config.safe_summary())
 ```
 
-真实运行前，请先把实例对应的环境变量写入 `configs/.env`（该文件已被 git 忽略），或在执行环境中直接设置变量。`safe_summary()` 不包含数据库密码明文。
+`safe_summary()` 不包含数据库密码明文。
 
 ## 提交与凭据安全
 
