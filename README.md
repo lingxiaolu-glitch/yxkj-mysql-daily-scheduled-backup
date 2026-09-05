@@ -69,11 +69,11 @@ mysql-daily-scheduled-backup/
 > - 步骤 11 应用层入口已实现：`application/main.py` 支持 `backup`、`restore`、`cleanup` 三个子命令，返回码 0/1/2，未知参数返回 2，配套 6 个 CLI 单测。
 > - 步骤 12 集成测试与部署脚本已实现：`tests/integration/test_end_to_end.py` 覆盖完整备份、gzip+schema、manifest、保留清理、恢复导入和 L2 影子库演练；提供 cron/systemd/Windows 计划任务安装脚本，配套 3 个端到端测试。
 > - 步骤 13 已完成本地 MySQL 演练，并已对服务器 MySQL 8.0.32（117.72.97.228:13306）执行真实完整备份与 schema_only 验证；生产 Linux cron/systemd 安装仍需 SSH 权限。报告见 `docx/DRILL_REPORT_LATEST.md`。
-> - 当前 `python -m unittest discover -s tests -v` 共 148 个用例，147 个通过、1 个 Windows 权限用例跳过。
+> - 当前 `python -m unittest discover -s tests -v` 共 151 个用例，150 个通过、1 个 Windows 权限用例跳过。
 
 ## 部署与运维
 
-生产服务器可先运行 `bash scripts/verify_deployment.sh configs/instance-a.toml` 做一键预检。
+生产服务器可先运行 `bash scripts/verify_deployment.sh configs/instance-a.toml` 做一键预检；需要 SSH 时用 `DEPLOY_HOST=服务器IP DEPLOY_USER=root bash scripts/deploy_to_server.sh` 上传并预检。
 
 
 详细步骤见 [docx/DEPLOYMENT.md](docx/DEPLOYMENT.md)，本地真实演练见 [docx/DRILL_REPORT_LATEST.md](docx/DRILL_REPORT_LATEST.md)，生产上线记录模板见 [docx/DRILL_REPORT_TEMPLATE.md](docx/DRILL_REPORT_TEMPLATE.md)。

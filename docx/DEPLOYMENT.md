@@ -26,6 +26,19 @@ python application/main.py backup --config configs/instance-a.toml
 
 生产执行前应先把配置复制到服务器任意受控目录，并确保 `.env` 权限为 600。
 
+## 2.1 一键上传与预检
+
+获得 SSH 信息后可执行：
+
+```bash
+DEPLOY_HOST=服务器IP DEPLOY_USER=root bash scripts/deploy_to_server.sh
+```
+
+- 默认不自动安装定时任务，只上传代码并执行 `scripts/verify_deployment.sh`。
+- 预检通过后，在服务器执行 `scripts/install_systemd.sh` 或传 `INSTALL_SYSTEMD=1` 自动安装。
+- 可通过 `REMOTE_DIR`、`DEPLOY_PORT`、`CONFIG` 覆盖默认值。
+- 脚本会通过 SSH 传输 `configs/.env`，请确保通道可信且服务器文件权限为 600。
+
 ## 3. 部署预检
 
 在服务器上先执行：
