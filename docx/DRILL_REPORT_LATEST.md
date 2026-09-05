@@ -128,3 +128,7 @@ python application/main.py restore --config <drill.toml> --db drill_shop --to-db
 3. 使用 `scripts/install_cron.sh` 或 `scripts/install_systemd.sh` 在 Linux 部署。
 4. 首次手工备份后用 `docx/DRILL_REPORT_TEMPLATE.md` 补全生产 AC 清单。
 5. 实测单日压缩备份体积并核对 `[backup] min_free_bytes`。
+
+## 11. 部署交接结论
+
+用户已确认生产 Linux/cron/systemd 部署由用户自行执行。本项目已完成全部可交付代码、测试、真实数据库备份验证及部署准备，服务器侧安装视为外部执行事项。
